@@ -41,7 +41,7 @@ public class TransactionalMap<K, V> {
         private final TransactionalMap<K, V> txMap;
 
         //Local fields
-        private final Map<K, WriteValue> storeBuf = new HashMap<>();
+        private final Map<K, Option<V>> storeBuf = new HashMap<>();
         private final List<ChildMapTransaction<K, V>> txs;
         private final Set<Lock> heldLocks;
         private int delta = 0;
@@ -69,9 +69,9 @@ public class TransactionalMap<K, V> {
              return (FutureValue<V>) this.registerReadOp(key, GET, future);
          }
 
-         public FutureValue<V> remove(K key) {
+         public FutureValue<Option<V>> remove(K key) {
              var op = Operation.RemoveOperation.REMOVE;
-             var future = new FutureValue<V>();
+             var future = new FutureValue<Option<V>>();
              this.txs.add(new ChildMapTransaction<>(this, op, Option.some(key), future));
              return future;
          }
@@ -129,8 +129,8 @@ public class TransactionalMap<K, V> {
         }
 
         public void commit() {
-            for (;;);
-         }
+            txs.forEach(ChildMapTransaction::commit);
+        }
 
          public void abort() {
 
@@ -141,7 +141,8 @@ public class TransactionalMap<K, V> {
             private final MapTransaction<K, V> parent;
             private final Option<K> key;
             private final Operation operation;
-            private final AtomicReference<TransactionState> state;
+            private boolean isModifying;
+            final AtomicReference<TransactionState> state;
             private final CommitHandler handler;
             private final FutureValue<?> future;
 
@@ -154,6 +155,18 @@ public class TransactionalMap<K, V> {
             this.future = future;
         }
 
+        public boolean isAborted(){
+            return state.get() == TransactionState.ABORTED;
+        }
+
+        public void setModifying(){
+            this.isModifying = true;
+        }
+
+        public boolean isModifying(){
+            return this.isModifying;
+        }
+
         @Override
         public Option<Transaction> parent() {
             return Option.some(parent);
@@ -164,13 +177,14 @@ public class TransactionalMap<K, V> {
         }
 
         public void commit() {
-
+            handler.commit();
         }
 
 
         public void abort() {
 
         }
+
     }
 
 
@@ -179,8 +193,60 @@ public class TransactionalMap<K, V> {
     }
 
     record ChildTxCommitHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements MapTxCommitHandler<K, V> {
+        @SuppressWarnings("unchecked")
         public void commit() {
+            var op = cmtx.operation;
+            var underlying = cmtx.parent.txMap.map;
+            var key = cmtx.key.unwrap();
+            var storeBuf = cmtx.parent.storeBuf;
+            switch (op) {
+                case Operation.PutOperation<?> po -> {
+                    V v = (V) po.value();
+                    storeBuf.put(key, Option.some(v));
+                    underlying.put(key, v);
+                    cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
+                    cmtx.future.complete(v);
+                    if (cmtx.isModifying()) cmtx.parent.incrementDelta();
+                }
 
+                case Operation.RemoveOperation _ -> {
+                    var option =  storeBuf.remove(key);
+                    storeBuf.put(key, Option.none()); //Put a none value
+                    Option<V> prev = (Option<V>) switch (option){
+                        case Some<?> some -> some;
+                        case None<?> _ -> Option.ofNullable(underlying.remove(key));
+                    };
+
+                    cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
+                    cmtx.future.complete(prev);
+                    if (cmtx.isModifying()) cmtx.parent.decrementDelta();
+
+                }
+
+                case Operation.GetOperation _ -> {
+                    var option = storeBuf.get(key);
+                    Option<V> val = (Option<V>) switch (option){
+                        case Some<?> some -> some;
+                        case None<?> _ -> Option.ofNullable(underlying.get(key));
+                    };
+                    cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
+                    cmtx.future.complete(val);
+                }
+
+                case Operation.ContainsKeyOperation _ -> {
+                    var opt = storeBuf.get(key);
+                    boolean val = (opt instanceof Some<?>) || underlying.containsKey(key);
+                    cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
+                    cmtx.future.complete(val);
+                }
+
+                case Operation.SizeOperation _ -> {
+                    int size = underlying.size();
+                    cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
+                    cmtx.future.complete(size + cmtx.parent.delta);
+                }
+
+            }
         }
 
         public void validate(){
@@ -190,10 +256,9 @@ public class TransactionalMap<K, V> {
 
         void handleOperation(Operation op){
             var txMap = cmtx.parent.txMap;
-            var sizeSet = txMap.sizeLockers;
             var key = cmtx.key.unwrap();
             switch (op){
-                case Operation.PutOperation _, Operation.RemoveOperation _ -> {
+                case Operation.PutOperation<?> _, Operation.RemoveOperation _ -> {
                     txMap.keyToLockers.get(key, op)
                             .map(SynchronizedTxSet::wLock)
                             .andThen(lock -> {
@@ -202,12 +267,18 @@ public class TransactionalMap<K, V> {
                             });
 
                     this.handleWriteOps(txMap, key, op);
+                    cmtx.state.compareAndSet(TransactionState.NONE, TransactionState.VALIDATED);
                 }
 
                 //For read ops
                 default -> {
-
-                } //We want to check if they are aborted, if so
+                    if (!cmtx.state.compareAndSet(TransactionState.NONE, TransactionState.VALIDATED)){
+                        if (cmtx.isAborted()) {
+                            cmtx.state.compareAndSet(TransactionState.ABORTED, TransactionState.VALIDATED);
+                            cmtx.parent.holdReadLock(cmtx.operation, cmtx.key);
+                        }
+                    }
+                } //We want to CAS initially, if we cant, then it means we're aborted
             }
         }
 
@@ -226,10 +297,11 @@ public class TransactionalMap<K, V> {
             //Now that we have the lock for contains key , we can check the underlying map to see if we should obtain the size lock too
             boolean containsKey = txMap.map.containsKey(key);
              switch (op){
-                case Operation.PutOperation _ -> {
+                case Operation.PutOperation<?> _ -> {
                     if (!containsKey){
                         var lock = txMap.sizeLockers.wLock();
                         if (cmtx.addLock(lock)) lock.lock();
+                        cmtx.setModifying();
                     }
                 }
 
@@ -237,6 +309,7 @@ public class TransactionalMap<K, V> {
                     if (containsKey){
                         var lock = txMap.sizeLockers.wLock();
                         if (cmtx.addLock(lock)) lock.lock();
+                        cmtx.setModifying();
                     }
                 }
 
@@ -264,16 +337,10 @@ public class TransactionalMap<K, V> {
         }
 
 
-        record ChildTxAbortHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements MapTxAbortHandler<K, V>{
+        record ChildTxAbortHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements MapTxAbortHandler<K, V> {
             @Override
             public void abort() {
 
-            }
-        }
-
-        record CompletableOperation<T>(Operation op, FutureValue<T> future){
-            public void complete(T value){
-                future.complete(value);
             }
         }
 

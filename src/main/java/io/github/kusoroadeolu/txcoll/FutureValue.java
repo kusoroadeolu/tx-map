@@ -23,7 +23,8 @@ public class FutureValue<V> {
         }
     }
 
-    public void complete(@NonNull V value){
-        future.complete(value);
+    @SuppressWarnings("unchecked")
+    public void complete(@NonNull Object value){
+        future.complete((V)value);
     }
 }

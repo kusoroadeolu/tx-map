@@ -1,5 +1,6 @@
 package io.github.kusoroadeolu.txcoll;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
@@ -12,23 +13,24 @@ class SynchronizedTxSet {
     private final Lock wLock;
 
     public SynchronizedTxSet(){
-        this.txSet = ConcurrentHashMap.newKeySet();
+        this.txSet = new HashSet<>();
         ReadWriteLock rwLock = new ReentrantReadWriteLock();
         this.rLock = rwLock.readLock();
         this.wLock = rwLock.writeLock();
     }
 
-    //Ensure only one tx can abort at a time, and that tx that aborted can take the lock
+    //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
     public Lock abortAll(){
         synchronized (this){
             txSet.forEach(Transaction::abort);
             return this.wLock;
         }
-
     }
 
     public boolean put(Transaction tx){
-        return txSet.add(tx);
+        synchronized (this){
+            return txSet.add(tx);
+        }
     }
 
     public Lock rLock(){
