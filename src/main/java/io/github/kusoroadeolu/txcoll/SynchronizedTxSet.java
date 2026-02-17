@@ -14,7 +14,7 @@ class SynchronizedTxSet {
     private final Set<Transaction> txSet;
     private final Lock lock;
     private final AtomicBoolean lockHeld;
-    private Transaction heldByParent; //The parent of the transaction
+    private volatile Transaction heldBy;
 
     public SynchronizedTxSet(){
         this.txSet = ConcurrentHashMap.newKeySet();
@@ -27,21 +27,22 @@ class SynchronizedTxSet {
     }
 
 
-    public LockStatus tryLock(Transaction tx){
+    public LockWrapper tryLock(Transaction tx){
         if (this.lockHeld.compareAndSet(false, true)){
             this.lock.lock();
-            return LockStatus.HELD;
+            this.heldBy = tx; // A race condition can occur here, could be fatal, we should probably use a stronger synchronization primitive here
+            return new LockWrapper(Option.some(this.lock), LockStatus.HELD);
         }
 
         Option<Transaction> option = tx.parent();
         return switch (option){
             case Some<Transaction> s -> {
-                if (s.unwrap().equals(heldByParent)){
-                    yield LockStatus.HELD_WITHIN;
-                }else yield LockStatus.NOT_HELD;
+                if (s.unwrap().equals(this.heldBy.parent().unwrap())){
+                    yield new LockWrapper(Option.none(), LockStatus.HELD_WITHIN);
+                }else yield new LockWrapper(Option.none(), LockStatus.NOT_HELD);
             }
 
-            case None n -> LockStatus.NOT_HELD;
+            case None n ->  new LockWrapper(Option.none(), LockStatus.NOT_HELD);
         };
     }
 
@@ -49,6 +50,9 @@ class SynchronizedTxSet {
         this.lock.unlock();
         return this.lock;
     }
+
+
+    record LockWrapper(Option<Lock> lock, LockStatus status){}
 
 
     public enum LockStatus {

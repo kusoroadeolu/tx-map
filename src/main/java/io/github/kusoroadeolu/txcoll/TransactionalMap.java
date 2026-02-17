@@ -97,8 +97,12 @@ public class TransactionalMap<K, V> {
             delta--;
         }
 
+        @Override
+        public Option<Transaction> parent() {
+            return Option.none();
+        }
 
-         public void commit() {
+        public void commit() {
             for (Map.Entry<K, CompletableOperation<?>> entry : ops.entrySet()){
 
             }
@@ -124,6 +128,11 @@ public class TransactionalMap<K, V> {
             this.locks = new ArrayList<>(0);
             this.handler = new MapCommitHandler<>(this, locks);
             this.key = key;
+        }
+
+        @Override
+        public Option<Transaction> parent() {
+            return Option.some(parent);
         }
 
         public void commit() {
@@ -160,7 +169,8 @@ public class TransactionalMap<K, V> {
                 case Operation.RemoveOperation ro -> {
                     var some = (Some<SynchronizedTxSet>) key2Lockers.get(cmtx.key.unwrap(), cmtx.operation);
                     var set = some.unwrap();
-                    while(!set.validateSelf(cmtx));
+                    var result = set.tryLock(tx); //Wait till we can acquire the lock
+                    if (result.)
 
                 }
 
