@@ -13,12 +13,9 @@ public class KeyToLockers<K> {
     }
 
     public void put(K key, Operation op, Transaction tx){
-         keyToLockers.computeIfAbsent(key, _ -> {
-             var map = new ConcurrentHashMap<Operation, SynchronizedTxSet>();
-             var txSet = map.computeIfAbsent(op, _ -> new SynchronizedTxSet());
-             txSet.put(tx);
-             return map;
-         });
+        var map = keyToLockers.computeIfAbsent(key, _ -> new ConcurrentHashMap<>());
+        var txSet = map.computeIfAbsent(op, _ -> new SynchronizedTxSet());
+        txSet.put(tx);
     }
 
     Option<SynchronizedTxSet> get(K key, Operation op){

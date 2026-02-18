@@ -42,6 +42,7 @@ public class TransactionalMap<K, V> {
         private final List<ChildMapTransaction<K, V>> txs;
         private final Set<Lock> heldLocks;
         private int delta = 0;
+        private final AtomicReference<TransactionState> state;
 
 
         //Open nested
@@ -49,6 +50,7 @@ public class TransactionalMap<K, V> {
             this.txMap = txMap;
             this.heldLocks = new HashSet<>();
             this.txs = new ArrayList<>();
+            this.state = new AtomicReference<>();
         }
 
          public void put(K key, V value) {
@@ -125,6 +127,11 @@ public class TransactionalMap<K, V> {
             return Option.none();
         }
 
+        @Override
+        public TransactionState state() {
+            return state.get();
+        }
+
         public void commit() {
             //Commit then countdown
             txs.forEach(ChildMapTransaction::commit);
@@ -141,7 +148,7 @@ public class TransactionalMap<K, V> {
                     }
                 }
             });
-
+            state.set(TransactionState.COMMITTED);
         }
 
          public void abort() {
@@ -206,6 +213,9 @@ public class TransactionalMap<K, V> {
             this.abortHandler.abort();
         }
 
+        public TransactionState state() {
+            return state.get();
+        }
     }
 
 
@@ -214,6 +224,7 @@ public class TransactionalMap<K, V> {
     }
 
     record ChildTxCommitHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements MapTxCommitHandler {
+
         @SuppressWarnings("unchecked")
         public void commit() {
             var op = cmtx.operation;
@@ -355,11 +366,11 @@ public class TransactionalMap<K, V> {
 
 
 
-        //TODO add aborts for parents
+        //TODO wire up aborts for parents
         record ChildTxAbortHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements MapTxAbortHandler<K, V> {
             @Override
             public void abort() {
-                if (!cmtx.state.compareAndSet(TransactionState.NONE, TransactionState.ABORTED)){
+                if (!cmtx.state.compareAndSet(TransactionState.NONE, TransactionState.ABORTED) && !cmtx.isAborted()){
                     //Can only be committed or validated, so we wait till count down
                     try {
                         cmtx.latch.await();
@@ -371,6 +382,22 @@ public class TransactionalMap<K, V> {
                     var lock = cmtx.lock.unwrap();
                     if(cmtx.parent.heldLocks.remove(lock)) lock.unlock();
                 }
+            }
+
+
+            public void abortByParent(){
+                var txMap = cmtx.parent.txMap;
+                cmtx.state.set(TransactionState.ABORTED);
+                switch (cmtx.operation){
+                    case Operation.SizeOperation _ -> txMap.sizeLockers.remove(cmtx);
+                    default -> {
+                        var op = cmtx.operation;
+                        var key = cmtx.key;
+                        txMap.keyToLockers.get(key.unwrap(), op)
+                                .ifSome(s -> s.remove(cmtx));
+                    }
+                }
+
             }
         }
 

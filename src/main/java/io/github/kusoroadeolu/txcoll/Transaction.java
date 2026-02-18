@@ -6,4 +6,5 @@ public interface Transaction {
     void commit();
     void abort();
     Option<Transaction> parent();
+    TransactionState state();
 }

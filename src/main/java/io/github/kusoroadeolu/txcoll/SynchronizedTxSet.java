@@ -22,7 +22,7 @@ class SynchronizedTxSet {
     //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
     public Lock abortAll(){
         synchronized (this){
-            txSet.forEach(Transaction::abort);
+            txSet.forEach(Transaction::a);
             return this.wLock;
         }
     }
