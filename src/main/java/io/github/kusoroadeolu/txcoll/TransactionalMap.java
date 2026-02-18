@@ -9,6 +9,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 
@@ -32,10 +33,6 @@ public class TransactionalMap<K, V> {
         this(new ConcurrentHashMap<>(), new KeyToLockers<>(), new SynchronizedTxSet());
     }
 
-    public boolean containsKey(K key){
-        return this.map.containsKey(key);
-    }
-
     public static class MapTransaction<K, V> implements Transaction{
         //This transactional map
         private final TransactionalMap<K, V> txMap;
@@ -54,8 +51,6 @@ public class TransactionalMap<K, V> {
             this.txs = new ArrayList<>();
         }
 
-        //TODO Add optimistic reads for read based txs
-
          public void put(K key, V value) {
             var op = new Operation.PutOperation<>(value);
             var future = new FutureValue<>();
@@ -63,6 +58,8 @@ public class TransactionalMap<K, V> {
             this.txs.add(ctx);
          }
 
+
+         //WRITE OPS
          @SuppressWarnings("unchecked")
          public FutureValue<V> get(K key) {
              var future = new FutureValue<V>();
@@ -76,20 +73,21 @@ public class TransactionalMap<K, V> {
              return future;
          }
 
-         @SuppressWarnings("unchecked")
-         public FutureValue<Boolean> containsKey(K key){
-             var future = new FutureValue<Boolean>();
-             return (FutureValue<Boolean>) this.registerReadOp(key, CONTAINS, future);
-         }
-
-
+         // READ OPS
          FutureValue<?> registerReadOp(@Nullable K key, Operation op, FutureValue<?> future){
-             var ctx = new ChildMapTransaction<>(this, op, Option.ofNullable(key), future);
+             var nullable = Option.ofNullable(key);
+             var lock = this.holdReadLock(op, nullable);
+             var ctx = new ChildMapTransaction<>(this, op, nullable, future, Option.some(lock));
              this.txs.add(ctx);
-             this.holdReadLock(op, Option.ofNullable(key));
              txMap.keyToLockers.put(key, op, ctx);
              return future;
          }
+
+        @SuppressWarnings("unchecked")
+        public FutureValue<Boolean> containsKey(K key){
+            var future = new FutureValue<Boolean>();
+            return (FutureValue<Boolean>) this.registerReadOp(key, CONTAINS, future);
+        }
 
          @SuppressWarnings("unchecked")
          public FutureValue<Integer> size(){
@@ -98,21 +96,20 @@ public class TransactionalMap<K, V> {
              return (FutureValue<Integer>) registerReadOp(null, op, future);
          }
 
-         void holdReadLock(Operation op, Option<K> key){
-            switch (key){
+         Lock holdReadLock(Operation op, Option<K> key){
+           return switch (key){
                 case Some<K> s -> txMap.keyToLockers.get(s.unwrap(), op)
                         .map(SynchronizedTxSet::rLock) //Get the read lock
                         .andThen(lock -> {
                             if (heldLocks.add(lock)) lock.lock();
-                            return null;
-                        });
-
+                            return new Some<>(lock);
+                        }).unwrap();
                 case None<K> _ -> {
                    var lock = txMap.sizeLockers.rLock();
                    if (heldLocks.add(lock)) lock.lock();
+                   yield lock;
                 }
-            }
-
+            };
          }
 
          void incrementDelta(){
@@ -129,11 +126,26 @@ public class TransactionalMap<K, V> {
         }
 
         public void commit() {
+            //Commit then countdown
             txs.forEach(ChildMapTransaction::commit);
+            heldLocks.forEach(Lock::unlock); //Then unlock all locks
+            txs.forEach(tx -> {
+                tx.latch.countDown();
+                switch (tx.operation){
+                    case Operation.SizeOperation _ -> txMap.sizeLockers.remove(tx);
+                    default -> {
+                        var op = tx.operation;
+                        var key = tx.key;
+                        txMap.keyToLockers.get(key.unwrap(), op)
+                                .ifSome(s -> s.remove(tx));
+                    }
+                }
+            });
+
         }
 
          public void abort() {
-
+            throw new UnsupportedOperationException("Cannot abort parent transaction");
          }
      }
 
@@ -141,18 +153,28 @@ public class TransactionalMap<K, V> {
             private final MapTransaction<K, V> parent;
             private final Option<K> key;
             private final Operation operation;
-            private boolean isModifying;
+            final Option<Lock> lock;
+            private boolean isModifying; //If this is a modifying transaction
             final AtomicReference<TransactionState> state;
-            private final CommitHandler handler;
+            private final CommitHandler commitHandler;
+            private final AbortHandler abortHandler;
             private final FutureValue<?> future;
+            private final CountDownLatch latch; //This latch is used to prevent busy spinning while an writer is trying to abort an already validated transaction
 
-        public ChildMapTransaction(MapTransaction<K, V> parent, Operation operation, Option<K> key, FutureValue<?> future) {
+        public ChildMapTransaction(MapTransaction<K, V> parent, Operation operation, Option<K> key, FutureValue<?> future, Option<Lock> lock) {
             this.operation = operation;
+            this.lock = lock;
             this.parent = parent;
             this.state = new AtomicReference<>();
-            this.handler = new ChildTxCommitHandler<>(this);
+            this.commitHandler = new ChildTxCommitHandler<>(this);
+            this.abortHandler = new ChildTxAbortHandler<>(this);
             this.key = key;
             this.future = future;
+            this.latch = new CountDownLatch(1);
+        }
+
+        public ChildMapTransaction(MapTransaction<K, V> parent, Operation operation, Option<K> key, FutureValue<?> future){
+            this(parent, operation, key, future, Option.none());
         }
 
         public boolean isAborted(){
@@ -167,7 +189,6 @@ public class TransactionalMap<K, V> {
             return this.isModifying;
         }
 
-        @Override
         public Option<Transaction> parent() {
             return Option.some(parent);
         }
@@ -177,22 +198,22 @@ public class TransactionalMap<K, V> {
         }
 
         public void commit() {
-            handler.commit();
+            commitHandler.commit();
         }
 
-
+        //Only read ops can be aborted so we'll implement specifically for that
         public void abort() {
-
+            this.abortHandler.abort();
         }
 
     }
 
 
-    interface MapTxCommitHandler<K, V> extends CommitHandler{
+    interface MapTxCommitHandler extends CommitHandler{
 
     }
 
-    record ChildTxCommitHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements MapTxCommitHandler<K, V> {
+    record ChildTxCommitHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements MapTxCommitHandler {
         @SuppressWarnings("unchecked")
         public void commit() {
             var op = cmtx.operation;
@@ -328,28 +349,28 @@ public class TransactionalMap<K, V> {
     }
 
 
-
-
-
-
         interface MapTxAbortHandler<K, V> extends AbortHandler{
 
         }
 
 
+
+        //TODO add aborts for parents
         record ChildTxAbortHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements MapTxAbortHandler<K, V> {
             @Override
             public void abort() {
-
-            }
-        }
-
-        interface WriteValue{
-            record Value<V>(V value) implements WriteValue{
-            }
-
-            enum None implements WriteValue{
-                REMOVED
+                if (!cmtx.state.compareAndSet(TransactionState.NONE, TransactionState.ABORTED)){
+                    //Can only be committed or validated, so we wait till count down
+                    try {
+                        cmtx.latch.await();
+                    } catch (InterruptedException e) {
+                        //Just assume the transaction is aborted
+                        //Maybe we can count down here, probably wont work lol
+                    }
+                }else {
+                    var lock = cmtx.lock.unwrap();
+                    if(cmtx.parent.heldLocks.remove(lock)) lock.unlock();
+                }
             }
         }
 

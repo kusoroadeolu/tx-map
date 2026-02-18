@@ -75,7 +75,7 @@ current status -> NONE, COMMITTED, ABORTED
 
 
 ## Transaction flow
-1. All child transactions are run and their semantics are added to the store buffer
+1. All read operations in a parent transaction
 2. At commit time, all transactions go through 2 processes, validation and modification
 3. During validation, each transaction finds conflicting semantic transactions in the key lockers or size lockers collections(though acquires the collection's locks first), aborts all those transactions, then commits itself
 </br> If any transaction in those collections is already commited, the transaction aborts itself then releases the lock, after a short duration then retries

@@ -33,8 +33,14 @@ class SynchronizedTxSet {
         }
     }
 
+    public void remove(Transaction tx){
+        txSet.remove(tx);
+    }
+
     public Lock rLock(){
-        return this.rLock;
+        synchronized (this){ //In the case a value already added to the map but not aborted trys to acquire a lock while writer is aborting
+            return this.rLock;
+        }
     }
 
     public Lock wLock(){
