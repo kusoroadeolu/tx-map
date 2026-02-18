@@ -6,6 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 class SynchronizedTxSet {
     private final Set<Transaction> txSet;
@@ -20,10 +22,10 @@ class SynchronizedTxSet {
     }
 
     //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
-    public Lock abortAll(){
+    public Lock abortAll(Set<Lock> locks){
         synchronized (this){
             txSet.forEach(Transaction::abort);
-            return this.wLock; //TODO We need to actually lock here, rather than return the lock
+            return new LockBiFunction().apply(locks, wLock);
         }
     }
 
@@ -45,4 +47,12 @@ class SynchronizedTxSet {
         return this.wLock;
     }
 
+
+    private record LockBiFunction() implements BiFunction<Set<Lock>, Lock, Lock>{
+        @Override
+        public Lock apply(Set<Lock> locks, Lock lock) {
+                if (locks.add(lock)) lock.lock();
+                return lock;
+            }
+        }
 }

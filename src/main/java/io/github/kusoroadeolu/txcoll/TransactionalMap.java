@@ -324,14 +324,11 @@ public class TransactionalMap<K, V> {
             //Then we want to grab to writeLocks for the contains operation, we want to check if the underlying map contains the key, so we can grab the size lock as well
             txMap.keyToLockers.get(key, CONTAINS)
                     .map(set -> {
-                        var lock = set.abortAll();
-                        if (cmtx.containsLock(set.rLock())) set.rLock().unlock(); //Unlock the read lock if we have it
-                        return lock;
+                        var rLock = set.rLock();
+                        if (cmtx.containsLock(rLock)) rLock.unlock(); //Unlock the read lock if we have it
+                        return set;
                     })
-                    .andThen(lock -> {
-                        if (cmtx.addLock(lock)) lock.lock();
-                        return null;
-                    });
+                    .map(set -> set.abortAll(cmtx.parent.heldLocks)); //Then lock the write lock to prevent a situation where we cant use the write lock cuz we have the read lock
             //Once we've grabbed the lock for 'contains', we can check
 
             //Now that we have the lock for contains key , we can check the underlying map to see if we should obtain the size lock too
@@ -356,13 +353,14 @@ public class TransactionalMap<K, V> {
                 default -> throw new Error();// Should never happen
             }
 
-            //Do the same thing for get as well
+            //Do the same thing for GET ops as well
             txMap.keyToLockers.get(key, GET)
-                    .map(SynchronizedTxSet::abortAll)
-                    .andThen(lock -> {
-                        if (cmtx.addLock(lock)) lock.lock();
-                        return null;
-                    });
+                    .map(set -> {
+                        var rLock = set.rLock();
+                        if (cmtx.containsLock(rLock)) rLock.unlock(); //Unlock the read lock if we have it
+                        return set;
+                    })
+                    .map(set -> set.abortAll(cmtx.parent.heldLocks));
         }
 
     }
@@ -384,7 +382,7 @@ public class TransactionalMap<K, V> {
                         cmtx.latch.await();
                     } catch (InterruptedException e) {
                         //Just assume the transaction is aborted
-                        //Maybe we can count down here, probably wont work lol
+                        //Maybe we can count down here, probably won't work lol
                     }
                 }else {
                     var lock = cmtx.lock.unwrap();
