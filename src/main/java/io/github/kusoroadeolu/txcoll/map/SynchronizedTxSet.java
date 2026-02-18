@@ -24,7 +24,7 @@ class SynchronizedTxSet {
         this.wLock = rwLock.writeLock();
     }
 
-    //Ensure only one tx can abort at a time, and only the tx that aborted can take the lck
+    //Ensure only one tx can abort at a time, and only the tx that aborted can take the iLock
     public Lock abortAll(ChildMapTransaction<?, ?> aborter){
         synchronized (this){
             txSet.stream().filter(tx -> !tx.parent().equals(aborter.parent())).forEach(Transaction::abort);
@@ -42,7 +42,7 @@ class SynchronizedTxSet {
     }
 
     public Lock rLock(){
-        synchronized (this){ //In the case a value already added to the map but not aborted trys to acquire a lck while writer is aborting
+        synchronized (this){ //In the case a value already added to the map but not aborted trys to acquire a iLock while writer is aborting
             return this.rLock;
         }
     }
@@ -56,7 +56,7 @@ class SynchronizedTxSet {
         @Override
         public Lock apply(Set<LockWrapper> lws, LockWrapper lw) {
             if (lws.add(lw)) lw.lock();
-            return lw.lck();
+            return lw.iLock();
         }
     }
 }

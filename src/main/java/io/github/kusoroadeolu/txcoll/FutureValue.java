@@ -5,8 +5,6 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class FutureValue<V> {
     private final CompletableFuture<V> future;
@@ -17,8 +15,8 @@ public class FutureValue<V> {
 
     public @NonNull Option<V> get(){
         try {
-            return Option.ofNullable(future.get(0, TimeUnit.NANOSECONDS));
-        } catch (ExecutionException | InterruptedException | TimeoutException e) {
+            return Option.ofNullable(future.get());
+        } catch (ExecutionException | InterruptedException _) {
             return Option.none();
         }
     }

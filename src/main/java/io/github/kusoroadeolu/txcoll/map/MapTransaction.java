@@ -7,10 +7,10 @@ import io.github.kusoroadeolu.txcoll.Transaction;
 public interface MapTransaction<K, V> extends AutoCloseable, Transaction {
 
     default void close(){
-        this.commit();
+        if (!isCommitted()) abort();
     }
 
-    void put(K key, V value);
+    FutureValue<Option<V>> put(K key, V value);
 
     FutureValue<Option<V>> remove(K key);
 
@@ -19,4 +19,6 @@ public interface MapTransaction<K, V> extends AutoCloseable, Transaction {
     FutureValue<Boolean> containsKey(K key);
 
     FutureValue<Integer> size();
+
+    boolean isCommitted();
 }
