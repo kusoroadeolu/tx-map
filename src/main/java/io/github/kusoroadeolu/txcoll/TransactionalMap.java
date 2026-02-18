@@ -204,6 +204,10 @@ public class TransactionalMap<K, V> {
            return this.parent.heldLocks.add(lock);
         }
 
+        public boolean containsLock(Lock lock){
+            return this.parent.heldLocks.contains(lock);
+        }
+
         public void commit() {
             commitHandler.commit();
         }
@@ -319,7 +323,11 @@ public class TransactionalMap<K, V> {
             //Ensure we only lock once, since a tx is basically only on a single thread, we cant really get deadlocks, but we want to ensure we release all locks
             //Then we want to grab to writeLocks for the contains operation, we want to check if the underlying map contains the key, so we can grab the size lock as well
             txMap.keyToLockers.get(key, CONTAINS)
-                    .map(SynchronizedTxSet::abortAll)
+                    .map(set -> {
+                        var lock = set.abortAll();
+                        if (cmtx.containsLock(set.rLock())) set.rLock().unlock(); //Unlock the read lock if we have it
+                        return lock;
+                    })
                     .andThen(lock -> {
                         if (cmtx.addLock(lock)) lock.lock();
                         return null;
