@@ -346,7 +346,7 @@ public class TransactionalMap<K, V> {
 
         void validateOps(Operation op){
             var txMap = cmtx.parent.txMap;
-            var key = cmtx.key.unwrap();
+            var key = cmtx.key.unwrap(); //Write ops always have a key so this is safe
             switch (op){
                 case Operation.PutOperation<?> _, Operation.RemoveOperation _ -> {
                     txMap.keyToLockers.get(key, op)
