@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static io.github.kusoroadeolu.txcoll.map.Operation.ContainsKeyOperation.CONTAINS;
 import static io.github.kusoroadeolu.txcoll.map.Operation.GetOperation.GET;
@@ -84,7 +85,7 @@ public class TransactionalMap<K, V> {
          // READ OPS
          FutureValue<?> registerReadOp(@Nullable K key, Operation op, FutureValue<?> future){
              var nullable = Option.ofNullable(key);
-             var lock = this.holdReadLock(op, nullable);
+             var lock = this.acquireReadLock(op, nullable);
              var ctx = new ChildMapTransaction<>(this, op, nullable, future, Option.some(lock));
              this.txs.add(ctx);
              txMap.keyToLockers.put(key, op, ctx);
@@ -110,9 +111,9 @@ public class TransactionalMap<K, V> {
              return (FutureValue<Integer>) registerReadOp(null, op, future);
          }
 
-         Lock holdReadLock(Operation op, Option<K> key){
+         Lock acquireReadLock(Operation op, Option<K> key){
            return switch (key){
-                case Some<K> s -> txMap.keyToLockers.get(s.unwrap(), op)
+                case Some<K> s -> txMap.keyToLockers.getOrCreate(s.unwrap(), op)
                         .map(SynchronizedTxSet::rLock) //Get the read lck
                         .andThen(lock -> {
                             var wp = new LockWrapper(LockType.READ, op , lock);
@@ -190,7 +191,7 @@ public class TransactionalMap<K, V> {
                     default -> {
                         var op = cmtx.operation;
                         var key = cmtx.key;
-                        tx.txMap.keyToLockers.get(key.unwrap(), op)
+                        tx.txMap.keyToLockers.getOrCreate(key.unwrap(), op)
                                 .ifSome(s -> s.remove(cmtx));
                     }
                 }
@@ -349,7 +350,7 @@ public class TransactionalMap<K, V> {
             var key = cmtx.key.unwrap(); //Write ops always have a key so this is safe
             switch (op){
                 case Operation.PutOperation<?> _, Operation.RemoveOperation _ -> {
-                    txMap.keyToLockers.get(key, op)
+                    txMap.keyToLockers.getOrCreate(key, op)
                             .map(SynchronizedTxSet::wLock)
                             .flatMap(lock -> {
                                 var wp = new LockWrapper(LockType.WRITE, op, lock);
@@ -365,7 +366,7 @@ public class TransactionalMap<K, V> {
                     if (!cmtx.state.compareAndSet(TransactionState.NONE, TransactionState.VALIDATED)){
                         if (cmtx.isAborted()) {
                             cmtx.state.compareAndSet(TransactionState.ABORTED, TransactionState.VALIDATED);
-                            cmtx.parent.holdReadLock(cmtx.operation, cmtx.key); //Set to validated first to prevent livelock issues
+                            cmtx.parent.acquireReadLock(cmtx.operation, cmtx.key); //Set to validated first to prevent livelock issues
                         }
                     }
                 } //We want to CAS initially, if we cant, then it means we're aborted
@@ -377,8 +378,9 @@ public class TransactionalMap<K, V> {
             //Ensure we only lock once, since a tx is basically only on a single thread, we cant really get deadlocks, but we want to ensure we release all locks
             //Then we want to grab to writeLocks for the contains operation, we want to check if the underlying map contains the key, so we can grab the size lock as well
             //Then lock the write lock to prevent a situation where we cant use the write lock cuz we have the read lck
-            var set = txMap.keyToLockers.get(key, op);
-            this.releaseReadLockIfHeld(set, key, CONTAINS);
+            var containsSet = txMap.keyToLockers.getOrCreate(key, CONTAINS);
+            this.releaseReadLockIfHeld(containsSet, CONTAINS);
+            containsSet.map(txSet -> txSet.abortAll(cmtx));
 
             //Now that we have the lck for contains key , we can check the underlying map to see if we should obtain the size lck too
             boolean containsKey = txMap.map.containsKey(key);
@@ -389,7 +391,7 @@ public class TransactionalMap<K, V> {
                         var wLock = sizeSet.wLock();
                         var wlw = new LockWrapper(LockType.WRITE, op, wLock);
                         if (cmtx.addLock(wlw)) {
-                            this.releaseReadLockIfHeld(Option.some(sizeSet), key, op);
+                            this.releaseReadLockIfHeld(Option.some(sizeSet), op);
                             wLock.lock();
                         }
                         cmtx.setModifying();
@@ -401,7 +403,7 @@ public class TransactionalMap<K, V> {
                         var wLock = sizeSet.wLock();
                         var wlw = new LockWrapper(LockType.WRITE, op, wLock);
                         if (cmtx.addLock(wlw)) {
-                            this.releaseReadLockIfHeld(Option.some(sizeSet), key, op);
+                            this.releaseReadLockIfHeld(Option.some(sizeSet), op);
                             wLock.lock();
                         }
                         cmtx.setModifying();
@@ -413,10 +415,15 @@ public class TransactionalMap<K, V> {
 
 
             //Do the same thing for GET ops as well
-            this.releaseReadLockIfHeld(set, key, GET);
+            var getSet = txMap.keyToLockers.getOrCreate(key, CONTAINS);
+            this.releaseReadLockIfHeld(containsSet, GET);
+            getSet.map(txSet -> txSet.abortAll(cmtx));
         }
 
-        void releaseReadLockIfHeld(Option<SynchronizedTxSet> txSet, K key, Operation op){
+
+
+
+        void releaseReadLockIfHeld(Option<SynchronizedTxSet> txSet, Operation op){
             txSet.map(set -> {
                         var rLock = set.rLock();
                         this.findExistingReadLock(op, rLock).ifPresent(lw -> {
@@ -463,7 +470,7 @@ public class TransactionalMap<K, V> {
                     default -> {
                         var op = cmtx.operation;
                         var key = cmtx.key;
-                        txMap.keyToLockers.get(key.unwrap(), op)
+                        txMap.keyToLockers.getOrCreate(key.unwrap(), op)
                                 .ifSome(s -> s.remove(cmtx));
                     }
                 }

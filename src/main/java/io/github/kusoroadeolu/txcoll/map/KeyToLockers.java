@@ -19,7 +19,7 @@ public class KeyToLockers<K> {
         txSet.put(tx);
     }
 
-    Option<SynchronizedTxSet> get(K key, Operation op){
+    Option<SynchronizedTxSet> getOrCreate(K key, Operation op){
         var map = keyToLockers.computeIfAbsent(key, _ -> new ConcurrentHashMap<>());
         var txSet = map.computeIfAbsent(op, _ -> new SynchronizedTxSet());
         return Option.some(txSet);
