@@ -1,4 +1,4 @@
-package io.github.kusoroadeolu.txcoll;
+package io.github.kusoroadeolu.txcoll.map;
 
 public sealed interface Operation permits Operation.PutOperation, Operation.RemoveOperation, Operation.ContainsKeyOperation, Operation.SizeOperation, Operation.GetOperation {
      record PutOperation<V>(V value) implements Operation {

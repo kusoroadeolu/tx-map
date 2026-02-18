@@ -1,6 +1,7 @@
-package io.github.kusoroadeolu.txcoll;
+package io.github.kusoroadeolu.txcoll.map;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
+import io.github.kusoroadeolu.txcoll.Transaction;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,10 +16,14 @@ public class KeyToLockers<K> {
     public void put(K key, Operation op, Transaction tx){
         var map = keyToLockers.computeIfAbsent(key, _ -> new ConcurrentHashMap<>());
         var txSet = map.computeIfAbsent(op, _ -> new SynchronizedTxSet());
+        map.putIfAbsent(op, txSet);
         txSet.put(tx);
     }
 
     Option<SynchronizedTxSet> get(K key, Operation op){
+        var map = keyToLockers.computeIfAbsent(key, _ -> new ConcurrentHashMap<>());
+        var txSet = map.computeIfAbsent(op, _ -> new SynchronizedTxSet());
+        map.putIfAbsent(op, txSet);
         return Option.ofNullable(keyToLockers.get(key).get(op));
     }
 
