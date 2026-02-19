@@ -1,44 +1,65 @@
 package io.github.kusoroadeolu.txcoll.map;
 
-import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txcoll.Transaction;
-import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.ChildMapTransaction;
-import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.LockWrapper;
-import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.MapTransactionImpl;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
 
+// So on this branch, rather than aborts, we're simply going to use optimistic integers
+/*  Ideally count can only be zero or one
 //Happens before edges
-/*
-* A abort of transactions in the set by a transaction happens before the acquisition of the write lock by the transaction that aborted
+* The acquisition of the lock of a set happens before the status is set to HELD. This guarantee is upheld by synchronization happens before guarantee
+* The release of the lock of a set happens before the status is set to FREE. This guarantee is upheld by synchronization happens before guarantee
+* The draining of readers happens before a writer can proceed. This guarantee is upheld by volatile read semantics of atomic reads
 * */
 class SynchronizedTxSet {
     private final Set<Transaction> txSet;
-    private final Lock rLock;
-    private final ReentrantReadWriteLock rwLock;
-    private final Lock wLock;
-    private static final ILockBiFunction BI_FUNCTION = new ILockBiFunction();
+    private final Lock lock;  //This lock is mainly meant for write ops, read operations use optimistic validation instead
+    private final AtomicInteger readerCount;
+    private volatile Latch holder;
+    public static final int FREE = 0;
+    public static final int HELD = 1;
+    private final static Latch DEFAULT = new Latch(FREE, null);
 
     public SynchronizedTxSet(){
         this.txSet = ConcurrentHashMap.newKeySet();
-        this.rwLock = new ReentrantReadWriteLock();
-        this.rLock = rwLock.readLock();
-        this.wLock = rwLock.writeLock();
+        this.lock = new ReentrantLock();
+        this.readerCount = new AtomicInteger();
+        this.holder = DEFAULT;
     }
 
     //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
-    public void abortAll(ChildMapTransaction<?, ?> aborter){
-        synchronized (this){
-           txSet.stream().filter(tx -> !tx.parent().equals(aborter.parent())).forEach(Transaction::abort);
-           aborter.parent().map(p -> ((MapTransactionImpl<?, ?>) p).heldLocks)
-                    .ifSome(slw -> BI_FUNCTION.apply(slw , new LockWrapper(DefaultTransactionalMap.LockType.WRITE, aborter.operation, wLock)));
+    public void lockAndIncrement(Predicate<Set<Lock>> shouldHold, Set<Lock> held){
+        if (shouldHold.test(held)){
+            this.lock.lock();
+            holder = new Latch(HELD, new CountDownLatch(1)); //Set both HELD and latch as a single atomic op. Prevents a scenario where a reader sees held but sees an old value of latch
+            //Signal readers to stop entering
+            while (readerCount.get() != 0) Thread.onSpinWait(); //Wait for existing readers to commit
+
         }
     }
 
+
+    public Lock getLock(){
+        return lock;
+    }
+
+    public Lock unlock(){
+        this.lock.unlock();
+        return lock;
+    }
+
+    public Lock decrementThenRelease(){
+        var prevLatch = holder.writerLatch();
+        holder = DEFAULT;
+        prevLatch.countDown();
+        return this.unlock();
+    }
 
     public boolean put(Transaction tx){
         return txSet.add(tx);
@@ -48,32 +69,24 @@ class SynchronizedTxSet {
         txSet.remove(tx);
     }
 
-    public Lock uniqueAcquireReadLock(Set<LockWrapper> heldLocks, Operation op, Object key){
-        synchronized (this){ //In the case a value already added to the map but not aborted trys to acquire a lock while writer is aborting
-           return Option.ofNullable(heldLocks)
-                    .map(slw -> BI_FUNCTION.apply(slw, new LockWrapper(DefaultTransactionalMap.LockType.READ, op, rLock)))
-                    .unwrap();
+    public boolean isHeld(){
+        return this.holder.status == HELD;
+    }
 
-        }
+    public CountDownLatch latch(){
+        return holder.writerLatch;
+    }
+
+    public void incrementReaderCount(){
+        readerCount.incrementAndGet();
+    }
+
+    public void decrementReaderCount(){
+        readerCount.decrementAndGet();
     }
 
 
-    //This is only held by write transactions, for read transactions that
-    public Lock wLock(){
-        return this.wLock;
-    }
 
+    record Latch(int status, CountDownLatch writerLatch){}
 
-    public boolean writeLockHeldByCurrentThread(){
-        return rwLock.isWriteLockedByCurrentThread();
-    }
-
-
-    private record ILockBiFunction() implements BiFunction<Set<LockWrapper>, LockWrapper, Lock>{
-        @Override
-        public Lock apply(Set<LockWrapper> held, LockWrapper lw) {
-            if (held.add(lw)) lw.lock();
-            return lw.iLock();
-        }
-    }
 }
