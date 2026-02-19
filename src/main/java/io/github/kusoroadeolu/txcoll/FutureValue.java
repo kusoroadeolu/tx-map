@@ -15,10 +15,14 @@ public class FutureValue<V> {
 
     public @NonNull Option<V> get(){
         try {
-            return Option.ofNullable(future.get());
+            return future.isDone() ? Option.ofNullable(future.get()) : Option.none();
         } catch (ExecutionException | InterruptedException _) {
             return Option.none();
         }
+    }
+
+    public boolean isComplete(){
+        return future.isDone();
     }
 
     @SuppressWarnings("unchecked")

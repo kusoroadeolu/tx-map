@@ -20,6 +20,14 @@ import java.util.concurrent.locks.Lock;
 import static io.github.kusoroadeolu.txcoll.map.Operation.ContainsKeyOperation.CONTAINS;
 import static io.github.kusoroadeolu.txcoll.map.Operation.GetOperation.GET;
 
+/*
+* Happens before guarantees
+* 1. The acquisition of read locks in a parent transaction before commit happens before the acquisition of write locks
+* 2. The release of read locks of conflicting read semantics happens before the acquisiton of those write locks
+* 3. The validation of a transaction happens before its commit
+* 4. The abortion of a read child transaction happens before its validation
+*
+* */
 public class TransactionalMap<K, V> {
     private final ConcurrentMap<K, V> map;
 
@@ -115,18 +123,10 @@ public class TransactionalMap<K, V> {
          Lock acquireReadLock(Operation op, Option<K> key){
            return switch (key){
                 case Some<K> s -> txMap.keyToLockers.getOrCreate(s.unwrap(), op)
-                        .map(SynchronizedTxSet::rLock) //Get the read iLock
-                        .andThen(lock -> {
-                            var wp = new LockWrapper(LockType.READ, op , lock);
-                            if (heldLocks.add(wp)) lock.lock();
-                            return new Some<>(lock);
-                        }).unwrap();
-                case None<K> _ -> {
-                   var lock = txMap.sizeLockers.rLock();
-                    var wp = new LockWrapper(LockType.READ, op , lock);
-                   if (heldLocks.add(wp)) lock.lock();
-                   yield lock;
-                }
+                        .map(txSet -> txSet.rLock(heldLocks, op)) //Get the read iLock
+                        .unwrap();
+
+                case None<K> _ -> txMap.sizeLockers.rLock(heldLocks, op);
             };
          }
 
@@ -382,7 +382,7 @@ public class TransactionalMap<K, V> {
             //Then lock the write lock to prevent a situation where we cant use the write lock cuz we have the read iLock
             var containsSet = txMap.keyToLockers.getOrCreate(key, CONTAINS);
             this.releaseReadLockIfHeld(containsSet, CONTAINS);
-            containsSet.map(txSet -> txSet.abortAll(cmtx));
+            containsSet.ifSome(txSet -> txSet.abortAll(cmtx));
 
             //Now that we have the iLock for contains key , we can check the underlying map to see if we should obtain the size iLock too
             boolean containsKey = txMap.map.containsKey(key);
@@ -390,24 +390,16 @@ public class TransactionalMap<K, V> {
              switch (op){
                 case Operation.PutOperation<?> _ -> {
                     if (!containsKey){
-                        var wLock = sizeSet.wLock();
-                        var wlw = new LockWrapper(LockType.WRITE, op, wLock);
-                        if (cmtx.addLock(wlw)) {
-                            this.releaseReadLockIfHeld(Option.some(sizeSet), op);
-                            wLock.lock();
-                        }
+                        this.releaseReadLockIfHeld(Option.some(sizeSet), op);
+                        sizeSet.abortAll(cmtx);
                         cmtx.setModifying();
                     }
                 }
 
                 case Operation.RemoveOperation _ -> {
                     if (containsKey){
-                        var wLock = sizeSet.wLock();
-                        var wlw = new LockWrapper(LockType.WRITE, op, wLock);
-                        if (cmtx.addLock(wlw)) {
-                            this.releaseReadLockIfHeld(Option.some(sizeSet), op);
-                            wLock.lock();
-                        }
+                        this.releaseReadLockIfHeld(Option.some(sizeSet), op);
+                        sizeSet.abortAll(cmtx);
                         cmtx.setModifying();
                     }
                 }
@@ -419,16 +411,15 @@ public class TransactionalMap<K, V> {
             //Do the same thing for GET ops as well
             var getSet = txMap.keyToLockers.getOrCreate(key, GET);
             this.releaseReadLockIfHeld(getSet, GET);
-            getSet.map(txSet -> txSet.abortAll(cmtx));
+            getSet.ifSome(txSet -> txSet.abortAll(cmtx));
         }
 
 
 
 
         void releaseReadLockIfHeld(Option<SynchronizedTxSet> txSet, Operation op){
-            txSet.map(set -> {
-                        var rLock = set.rLock();
-                        this.findExistingReadLock(op, rLock).ifPresent(lw -> {
+            txSet.map(_ -> {
+                        this.findExistingReadLock(op).ifPresent(lw -> {
                             lw.unlock();
                             cmtx.parent.heldLocks.remove(lw);
                         });
@@ -436,8 +427,8 @@ public class TransactionalMap<K, V> {
                     });
         }
 
-        Optional<LockWrapper> findExistingReadLock(Operation op, Lock lock){
-            var glw = new LockWrapper(LockType.READ, op, lock);
+        Optional<LockWrapper> findExistingReadLock(Operation op){
+            var glw = new LockWrapper(LockType.READ, op, null);
             return cmtx.parent.heldLocks.stream()
                     .filter(lw -> lw.equals(glw))
                     .findFirst();
