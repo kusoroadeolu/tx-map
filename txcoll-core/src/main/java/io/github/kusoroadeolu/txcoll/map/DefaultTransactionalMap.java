@@ -136,8 +136,6 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
              return (FutureValue<Integer>) registerReadOp(null, SIZE, future);
          }
 
-
-
         @Override
         public Option<Transaction> parent() {
             return Option.none();
@@ -167,10 +165,6 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
              heldLocks.clear();
              txs.clear();
          }
-
-         boolean isCommited(){
-            return state == COMMITTED;
-         }
      }
 
 
@@ -188,7 +182,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
     record MapTxCommitHandler<K, V>(MapTransactionImpl<K, V> tx) implements CommitHandler{
         @Override
         public void commit() {
-            if (tx.hasAborted) {
+            if (tx.hasAborted) { //Check if we have an aborted tx
                 tx.abort();
                 return;
             }
@@ -228,6 +222,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
             final Operation operation;
             final Option<Lock> lock;
             TransactionState state;
+            private boolean incrementedCount;
             private final CommitHandler commitHandler;
             private final AbortHandler abortHandler;
             private final FutureValue<?> future;
@@ -274,6 +269,18 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
 
         public TransactionState state() {
             return state;
+        }
+
+        public void setIncrementedCount(){
+            incrementedCount = true;
+        }
+
+        public boolean hasIncrementedCount(){
+            return incrementedCount;
+        }
+
+        public boolean isAborted(){
+            return state == ABORTED;
         }
     }
 
@@ -374,14 +381,19 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
                     if (set.isHeld()) {
                         try {
                             set.latch().await();
-                            set.incrementReaderCount();
-                            cmtx.state = TransactionState.VALIDATED;
                         } catch (InterruptedException _) {
                             Thread.currentThread().interrupt();
                             cmtx.state = TransactionState.ABORTED;
                             cmtx.parent.hasAborted = true;
                         }
                     }
+
+                    if (!cmtx.isAborted()){
+                        set.incrementReaderCount();
+                        cmtx.setIncrementedCount();
+                        cmtx.state = TransactionState.VALIDATED;
+                    }
+
                 }
             }
         }
@@ -438,7 +450,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
                     case Operation.SizeOperation _ -> {
                         var set = txMap.sizeLockers;
                         set.remove(cmtx);
-                        set.decrementReaderCount();
+                        if(cmtx.hasIncrementedCount()) set.decrementReaderCount();
                     }
 
                     default -> {
