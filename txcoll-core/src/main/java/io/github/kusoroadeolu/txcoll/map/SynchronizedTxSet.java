@@ -2,9 +2,9 @@ package io.github.kusoroadeolu.txcoll.map;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txcoll.Transaction;
-import io.github.kusoroadeolu.txcoll.map.TransactionalMap.ChildMapTransaction;
-import io.github.kusoroadeolu.txcoll.map.TransactionalMap.LockWrapper;
-import io.github.kusoroadeolu.txcoll.map.TransactionalMap.MapTransactionImpl;
+import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.ChildMapTransaction;
+import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.LockWrapper;
+import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.MapTransactionImpl;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,9 +35,10 @@ class SynchronizedTxSet {
         synchronized (this){
            txSet.stream().filter(tx -> !tx.parent().equals(aborter.parent())).forEach(Transaction::abort);
            aborter.parent().map(p -> ((MapTransactionImpl<?, ?>) p).heldLocks)
-                    .ifSome(slw -> BI_FUNCTION.apply(slw , new LockWrapper(TransactionalMap.LockType.WRITE, aborter.operation, null)));
+                    .ifSome(slw -> BI_FUNCTION.apply(slw , new LockWrapper(DefaultTransactionalMap.LockType.WRITE, aborter.operation, wLock)));
         }
     }
+
 
     public boolean put(Transaction tx){
         return txSet.add(tx);
@@ -47,10 +48,10 @@ class SynchronizedTxSet {
         txSet.remove(tx);
     }
 
-    public Lock rLock(Set<LockWrapper> heldLocks, Operation op){
+    public Lock uniqueAcquireReadLock(Set<LockWrapper> heldLocks, Operation op, Object key){
         synchronized (this){ //In the case a value already added to the map but not aborted trys to acquire a lock while writer is aborting
            return Option.ofNullable(heldLocks)
-                    .map(slw -> BI_FUNCTION.apply(slw, new LockWrapper(TransactionalMap.LockType.READ, op, null)))
+                    .map(slw -> BI_FUNCTION.apply(slw, new LockWrapper(DefaultTransactionalMap.LockType.READ, op, rLock)))
                     .unwrap();
 
         }
@@ -75,13 +76,4 @@ class SynchronizedTxSet {
             return lw.iLock();
         }
     }
-
-//    private record ReadLockBiFunction() implements BiFunction<Set<LockWrapper>, LockWrapper, Lock> {
-//
-//        @Override
-//        public Lock apply(Set<LockWrapper> held, LockWrapper lw) {
-//            if (held.add(lw)) lw.lock();
-//            return lw.iLock();
-//        }
-//    }
 }

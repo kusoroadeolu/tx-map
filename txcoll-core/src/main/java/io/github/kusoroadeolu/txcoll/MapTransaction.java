@@ -1,8 +1,6 @@
-package io.github.kusoroadeolu.txcoll.map;
+package io.github.kusoroadeolu.txcoll;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
-import io.github.kusoroadeolu.txcoll.FutureValue;
-import io.github.kusoroadeolu.txcoll.Transaction;
 
 public interface MapTransaction<K, V> extends AutoCloseable, Transaction {
 

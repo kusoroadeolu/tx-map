@@ -3,9 +3,7 @@ package io.github.kusoroadeolu.txcoll.map;
 import io.github.kusoroadeolu.ferrous.option.None;
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.ferrous.option.Some;
-import io.github.kusoroadeolu.txcoll.FutureValue;
-import io.github.kusoroadeolu.txcoll.Transaction;
-import io.github.kusoroadeolu.txcoll.TransactionState;
+import io.github.kusoroadeolu.txcoll.*;
 import io.github.kusoroadeolu.txcoll.handlers.AbortHandler;
 import io.github.kusoroadeolu.txcoll.handlers.CommitHandler;
 import org.jspecify.annotations.Nullable;
@@ -19,39 +17,43 @@ import java.util.concurrent.locks.Lock;
 
 import static io.github.kusoroadeolu.txcoll.map.Operation.ContainsKeyOperation.CONTAINS;
 import static io.github.kusoroadeolu.txcoll.map.Operation.GetOperation.GET;
+import static io.github.kusoroadeolu.txcoll.map.Operation.SizeOperation.SIZE;
 
 /*
 * Happens before guarantees
 * 1. The acquisition of read locks in a parent transaction before commit happens before the acquisition of write locks
-* 2. The release of read locks of conflicting read semantics happens before the acquisiton of those write locks
+* 2. The release of read locks of conflicting read semantics happens before the acquisition of those write locks
 * 3. The validation of a transaction happens before its commit
 * 4. The abortion of a read child transaction happens before its validation
-*
+* 5. The acquisition of a contains key write lock happens before the potential acquisition of a size lock
+* 6. Write conflicting ops -> Contains key, (depending on the write type and contains key type, size might be conflicting), get
+* 7. The release of read locks held by a transaction(on the same thread) of conflicting happens before the acquisition of the write lock to prevent deadlock issues
 * */
-public class TransactionalMap<K, V> {
+public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
     private final ConcurrentMap<K, V> map;
 
     //Shared state
     private final KeyToLockers<K> keyToLockers;
     private final SynchronizedTxSet sizeLockers;
 
-    TransactionalMap(ConcurrentMap<K, V> map, KeyToLockers<K> keyToLockers, SynchronizedTxSet sizeLockers) {
+    DefaultTransactionalMap(ConcurrentMap<K, V> map, KeyToLockers<K> keyToLockers, SynchronizedTxSet sizeLockers) {
         this.map = map;
         this.keyToLockers = keyToLockers;
         this.sizeLockers = sizeLockers;
     }
 
-    public TransactionalMap(){
+    public DefaultTransactionalMap(){
         this(new ConcurrentHashMap<>(), new KeyToLockers<>(), new SynchronizedTxSet());
     }
 
+    @Override
     public MapTransaction<K, V> beginTx(){
         return new MapTransactionImpl<>(this);
     }
 
     static class MapTransactionImpl<K, V> implements MapTransaction<K, V> {
         //This transactional map
-        final TransactionalMap<K, V> txMap;
+        final DefaultTransactionalMap<K, V> txMap;
 
         //Local fields
         final Map<K, Option<V>> storeBuf;
@@ -63,7 +65,7 @@ public class TransactionalMap<K, V> {
         private final CommitHandler commitHandler;
 
 
-        public MapTransactionImpl(TransactionalMap<K, V> txMap){
+        public MapTransactionImpl(DefaultTransactionalMap<K, V> txMap){
             this.txMap = txMap;
             this.heldLocks = ConcurrentHashMap.newKeySet(); //In the case where two threads try to remove a iLock from this set
             this.storeBuf = new HashMap<>();
@@ -97,7 +99,10 @@ public class TransactionalMap<K, V> {
              var lock = this.acquireReadLock(op, nullable);
              var ctx = new ChildMapTransaction<>(this, op, nullable, future, Option.some(lock));
              this.txs.add(ctx);
-             txMap.keyToLockers.put(key, op, ctx);
+             switch (nullable) {
+                 case Some<?> _ -> txMap.keyToLockers.put(key, op, ctx);
+                 case None<?> _ -> txMap.sizeLockers.put(ctx);
+             }
              return future;
          }
 
@@ -115,18 +120,17 @@ public class TransactionalMap<K, V> {
 
          @SuppressWarnings("unchecked")
          public FutureValue<Integer> size(){
-             var op = Operation.SizeOperation.SIZE;
              var future = new FutureValue<Integer>();
-             return (FutureValue<Integer>) registerReadOp(null, op, future);
+             return (FutureValue<Integer>) registerReadOp(null, SIZE, future);
          }
 
          Lock acquireReadLock(Operation op, Option<K> key){
            return switch (key){
                 case Some<K> s -> txMap.keyToLockers.getOrCreate(s.unwrap(), op)
-                        .map(txSet -> txSet.rLock(heldLocks, op)) //Get the read iLock
+                        .map(txSet -> txSet.uniqueAcquireReadLock(heldLocks, op, key.toNullable())) //Get the read iLock
                         .unwrap();
 
-                case None<K> _ -> txMap.sizeLockers.rLock(heldLocks, op);
+                case None<K> _ -> txMap.sizeLockers.uniqueAcquireReadLock(heldLocks, op, key.toNullable());
             };
          }
 
@@ -216,7 +220,7 @@ public class TransactionalMap<K, V> {
 
     static class ChildMapTransaction<K, V> implements Transaction {
             private final MapTransactionImpl<K, V> parent;
-            private final Option<K> key;
+            final Option<K> key;
             final Operation operation;
             final Option<Lock> lock;
             private boolean isModifying; //If this is a modifying transaction
@@ -291,25 +295,30 @@ public class TransactionalMap<K, V> {
         public void commit() {
             var op = cmtx.operation;
             var underlying = cmtx.parent.txMap.map;
-            var key = cmtx.key.unwrap();
+            var keyOption = cmtx.key;
             var storeBuf = cmtx.parent.storeBuf;
             switch (op) {
                 case Operation.PutOperation<?> po -> {
                     V v = (V) po.value();
-                    storeBuf.put(key, Option.some(v));
-                    var prev = underlying.put(key, v);
+                    var prev = storeBuf.put(keyOption.unwrap(), Option.some(v));
+                    var ulPrev = underlying.put(keyOption.unwrap(), v);
+                    if(prev == null) prev = Option.ofNullable(ulPrev);
                     cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
-                    cmtx.future.complete(Option.ofNullable(prev));
+                    cmtx.future.complete(prev);
                     if (cmtx.isModifying()) cmtx.parent.incrementDelta();
                 }
 
                 case Operation.RemoveOperation _ -> {
-                    var option =  storeBuf.remove(key);
-                    storeBuf.put(key, Option.none()); //Put a none value
-                    Option<V> prev = (Option<V>) switch (option){
-                        case Some<?> some -> some;
-                        case None<?> _ -> Option.ofNullable(underlying.remove(key));
-                    };
+                    var option =  storeBuf.remove(keyOption.unwrap());
+                    storeBuf.put(keyOption.unwrap(), Option.none()); //Put a none value
+                    Option<V> prev;
+                    if (option == null) {
+                        prev = Option.ofNullable(underlying.remove(keyOption.unwrap()));
+                    } else prev = (Option<V>) switch (option){
+                            case Some<?> some -> some;
+                            case None<?> _ -> Option.ofNullable(underlying.remove(keyOption.unwrap()));
+                        };
+
 
                     cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
                     cmtx.future.complete(prev);
@@ -318,18 +327,21 @@ public class TransactionalMap<K, V> {
                 }
 
                 case Operation.GetOperation _ -> {
-                    var option = storeBuf.get(key);
-                    Option<V> val = (Option<V>) switch (option){
+                    var option = storeBuf.get(keyOption.unwrap());
+                    Option<V> val;
+                    if (option == null) {
+                        val = Option.ofNullable(underlying.get(keyOption.unwrap()));
+                    } else val = (Option<V>) switch (option){
                         case Some<?> some -> some;
-                        case None<?> _ -> Option.ofNullable(underlying.get(key));
+                        case None<?> _ -> Option.ofNullable(underlying.get(keyOption.unwrap()));
                     };
                     cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
                     cmtx.future.complete(val);
                 }
 
                 case Operation.ContainsKeyOperation _ -> {
-                    var opt = storeBuf.get(key);
-                    boolean val = (opt instanceof Some<?>) || underlying.containsKey(key);
+                    var opt = storeBuf.get(keyOption.unwrap());
+                    boolean val = (opt instanceof Some<?>) || underlying.containsKey(keyOption.unwrap());
                     cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
                     cmtx.future.complete(val);
                 }
@@ -337,7 +349,7 @@ public class TransactionalMap<K, V> {
                 case Operation.SizeOperation _ -> {
                     int size = underlying.size();
                     cmtx.state.compareAndSet(TransactionState.VALIDATED, TransactionState.COMMITTED);
-                    cmtx.future.complete(size + cmtx.parent.delta);
+                    cmtx.future.complete(size);
                 }
 
             }
@@ -349,17 +361,17 @@ public class TransactionalMap<K, V> {
 
         void validateOps(Operation op){
             var txMap = cmtx.parent.txMap;
-            var key = cmtx.key.unwrap(); //Write ops always have a key so this is safe
+            var key = cmtx.key; //Write ops always have a key so this is safe
             switch (op){
                 case Operation.PutOperation<?> _, Operation.RemoveOperation _ -> {
-                    txMap.keyToLockers.getOrCreate(key, op)
+                    txMap.keyToLockers.getOrCreate(key.unwrap(), op)
                             .map(SynchronizedTxSet::wLock)
                             .flatMap(lock -> {
                                 var wp = new LockWrapper(LockType.WRITE, op, lock);
                                 if (cmtx.addLock(wp)) lock.lock();
                                 return new Some<>(lock);
                             });
-                    this.handleWriteOps(txMap, key, op);
+                    this.handleWriteOps(txMap, key.unwrap(), op);
                     cmtx.state.compareAndSet(TransactionState.NONE, TransactionState.VALIDATED);
                 }
 
@@ -376,7 +388,7 @@ public class TransactionalMap<K, V> {
         }
 
 
-        void handleWriteOps(TransactionalMap<K, V> txMap, K key, Operation op){
+        void handleWriteOps(DefaultTransactionalMap<K, V> txMap, K key, Operation op){
             //Ensure we only lock once, since a tx is basically only on a single thread, we cant really get deadlocks, but we want to ensure we release all locks
             //Then we want to grab to writeLocks for the contains operation, we want to check if the underlying map contains the key, so we can grab the size lock as well
             //Then lock the write lock to prevent a situation where we cant use the write lock cuz we have the read iLock
@@ -449,6 +461,10 @@ public class TransactionalMap<K, V> {
                 }else {
                      cmtx.lock.ifSome(lock -> {
                         var op = cmtx.operation;
+                        K key;
+                        if (op == SIZE) key = null;
+                        else key = cmtx.key.unwrap();
+
                         var lw = new LockWrapper(LockType.READ, op, lock);
                         if(cmtx.parent.heldLocks.remove(lw)) lw.unlock();
                     });
