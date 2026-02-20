@@ -27,10 +27,10 @@ class GuardedTxSet {
     private final static Latch DEFAULT = new Latch(FREE, null ,null);
 
     public GuardedTxSet(){
+        this.latch = DEFAULT;
         this.txSet = ConcurrentHashMap.newKeySet();
         this.lock = new ReentrantLock();
         this.readerCount = new AtomicInteger();
-        this.latch = DEFAULT;
     }
 
     //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
@@ -38,7 +38,7 @@ class GuardedTxSet {
         if (shouldHold.test(held)){
             this.lock.lock();
             latch = new Latch(HELD, tx.parent().unwrap() ,new CountDownLatch(1)); //Set both HELD and latch as a single atomic op. Prevents a scenario where a reader sees held but sees an old value of latch
-            while (readerCount.get() != 0) Thread.onSpinWait(); //Wait for existing readers to commit
+            while (readerCount.get() > 0) Thread.onSpinWait(); //Wait for existing readers to commit
         }
     }
 
@@ -52,7 +52,7 @@ class GuardedTxSet {
             return;
         }
 
-        var prev = latch.writerLatch;
+        var prev = latch.cLatch;
         latch = DEFAULT; //Ensure writers see we're free, before we countdown to prevent TOCTOU NPEs
         prev.countDown();
         this.lock.unlock();
@@ -66,12 +66,8 @@ class GuardedTxSet {
         txSet.remove(tx);
     }
 
-    public boolean isHeld(Transaction tx){
-        return this.latch.status == HELD && !this.latch.parent.equals(tx.parent().unwrap());
-    }
-
-    public CountDownLatch latch(){
-        return latch.writerLatch;
+    public Latch latch(){
+        return this.latch;
     }
 
     public void incrementReaderCount(){
@@ -84,6 +80,10 @@ class GuardedTxSet {
 
 
 
-    record Latch(int status, Transaction parent ,CountDownLatch writerLatch){}
+    record Latch(int status, Transaction parent ,CountDownLatch cLatch){
+        public boolean isHeld(Transaction tx){
+            return this.status == HELD && !this.parent.equals(tx.parent().unwrap());
+        }
+    }
 
 }

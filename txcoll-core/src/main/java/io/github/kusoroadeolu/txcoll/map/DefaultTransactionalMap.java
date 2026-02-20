@@ -360,9 +360,10 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
                 default -> {
                     //Check the value
                     var set = cmtx.key.isNone() ? txMap.sizeLockers : txMap.keyToLockers.getOrCreate(cmtx.key.unwrap(), op).unwrap();
-                    while (set.isHeld(cmtx)) {
+                    GuardedTxSet.Latch latch = set.latch();
+                    if (latch.isHeld(cmtx)) {
                         try {
-                            set.latch().await();
+                           latch.cLatch().await();
                         } catch (InterruptedException _) {
                             Thread.currentThread().interrupt();
                             cmtx.state = TransactionState.ABORTED;
@@ -438,7 +439,8 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
                         var key = cmtx.key;
                         txMap.keyToLockers.getOrCreate(key.unwrap(), op)
                                 .inspect(set -> set.remove(cmtx))
-                                .inspect(GuardedTxSet::decrementReaderCount);
+                                .filter(_ -> cmtx.hasIncrementedCount())
+                                .ifSome(GuardedTxSet::decrementReaderCount);
                     }
                 }
 

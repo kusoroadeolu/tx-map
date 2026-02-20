@@ -44,12 +44,6 @@ public class ContentionBenchmark {
     // -------------------------------------------------------------------------
 
     @State(Scope.Thread)
-    @AuxCounters(AuxCounters.Type.EVENTS)
-    public static class AbortCounters {
-        public long aborts;   // JMH will report this as an additional metric
-    }
-
-    @State(Scope.Thread)
     public static class ThreadState {
         // Simple round-robin index for key selection — spreads load evenly
         int keyIndex = 0;
@@ -78,26 +72,26 @@ public class ContentionBenchmark {
 
     @Benchmark
     @Threads(1)
-    public void readHeavy_1thread(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        readHeavy(ts, counters, bh);
+    public void readHeavy_1thread(ThreadState ts, Blackhole bh) {
+        readHeavy(ts, bh);
     }
 
     @Benchmark
     @Threads(2)
-    public void readHeavy_2threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        readHeavy(ts, counters, bh);
+    public void readHeavy_2threads(ThreadState ts, Blackhole bh) {
+        readHeavy(ts, bh);
     }
 
     @Benchmark
     @Threads(4)
-    public void readHeavy_4threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        readHeavy(ts, counters, bh);
+    public void readHeavy_4threads(ThreadState ts, Blackhole bh) {
+        readHeavy(ts, bh);
     }
 
     @Benchmark
     @Threads(8)
-    public void readHeavy_8threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        readHeavy(ts, counters, bh);
+    public void readHeavy_8threads(ThreadState ts, Blackhole bh) {
+        readHeavy(ts, bh);
     }
 
     // -------------------------------------------------------------------------
@@ -106,26 +100,26 @@ public class ContentionBenchmark {
 
     @Benchmark
     @Threads(1)
-    public void balanced_1thread(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        balanced(ts, counters, bh);
+    public void balanced_1thread(ThreadState ts, Blackhole bh) {
+        balanced(ts, bh);
     }
 
     @Benchmark
     @Threads(2)
-    public void balanced_2threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        balanced(ts, counters, bh);
+    public void balanced_2threads(ThreadState ts , Blackhole bh) {
+        balanced(ts, bh);
     }
 
     @Benchmark
     @Threads(4)
-    public void balanced_4threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        balanced(ts, counters, bh);
+    public void balanced_4threads(ThreadState ts, Blackhole bh) {
+        balanced(ts,bh);
     }
 
     @Benchmark
     @Threads(8)
-    public void balanced_8threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        balanced(ts, counters, bh);
+    public void balanced_8threads(ThreadState ts, Blackhole bh) {
+        balanced(ts, bh);
     }
 
     // -------------------------------------------------------------------------
@@ -134,48 +128,48 @@ public class ContentionBenchmark {
 
     @Benchmark
     @Threads(1)
-    public void writeHeavy_1thread(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        writeHeavy(ts, counters, bh);
+    public void writeHeavy_1thread(ThreadState ts, Blackhole bh) {
+        writeHeavy(ts, bh);
     }
 
     @Benchmark
     @Threads(2)
-    public void writeHeavy_2threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        writeHeavy(ts, counters, bh);
+    public void writeHeavy_2threads(ThreadState ts, Blackhole bh) {
+        writeHeavy(ts, bh);
     }
 
     @Benchmark
     @Threads(4)
-    public void writeHeavy_4threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        writeHeavy(ts, counters, bh);
+    public void writeHeavy_4threads(ThreadState ts, Blackhole bh) {
+        writeHeavy(ts, bh);
     }
 
     @Benchmark
     @Threads(8)
-    public void writeHeavy_8threads(ThreadState ts, AbortCounters counters, Blackhole bh) {
-        writeHeavy(ts, counters, bh);
+    public void writeHeavy_8threads(ThreadState ts, Blackhole bh) {
+        writeHeavy(ts, bh);
     }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    private void readHeavy(ThreadState ts, AbortCounters counters, Blackhole bh) {
+    private void readHeavy(ThreadState ts, Blackhole bh) {
         boolean isWrite = (ts.opIndex++ % 10) == 0; // 1 in 10 ops is a write
-        doOp(ts.nextKey(), isWrite, counters, bh);
+        doOp(ts.nextKey(), isWrite, bh);
     }
 
-    private void balanced(ThreadState ts, AbortCounters counters, Blackhole bh) {
+    private void balanced(ThreadState ts, Blackhole bh) {
         boolean isWrite = (ts.opIndex++ % 2) == 0; // every other op is a write
-        doOp(ts.nextKey(), isWrite, counters, bh);
+        doOp(ts.nextKey(), isWrite, bh);
     }
 
-    private void writeHeavy(ThreadState ts, AbortCounters counters, Blackhole bh) {
+    private void writeHeavy(ThreadState ts, Blackhole bh) {
         boolean isWrite = (ts.opIndex++ % 10) != 0; // 9 in 10 ops is a write
-        doOp(ts.nextKey(), isWrite, counters, bh);
+        doOp(ts.nextKey(), isWrite, bh);
     }
 
-    private void doOp(String key, boolean isWrite, AbortCounters counters, Blackhole bh) {
+    private void doOp(String key, boolean isWrite, Blackhole bh) {
         try (var tx = txMap.beginTx()) {
             if (isWrite) {
                 var future = tx.put(key, 42);
@@ -186,9 +180,6 @@ public class ContentionBenchmark {
                 tx.commit();
                 bh.consume(future.get());
             }
-        } catch (Exception e) {
-            // Transaction was aborted due to conflict — track it
-            counters.aborts++;
         }
     }
 }
