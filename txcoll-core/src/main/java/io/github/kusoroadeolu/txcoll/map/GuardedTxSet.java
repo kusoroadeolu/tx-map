@@ -17,48 +17,45 @@ import java.util.function.Predicate;
 * The release of the lock of a set happens before the status is set to FREE. This guarantee is upheld by synchronization happens before guarantee
 * The draining of readers happens before a writer can proceed. This guarantee is upheld by volatile read semantics of atomic reads
 * */
-class SynchronizedTxSet {
+class GuardedTxSet {
     private final Set<Transaction> txSet;
     private final Lock lock;  //This lock is mainly meant for write ops, read operations use optimistic validation instead
     private final AtomicInteger readerCount;
-    private volatile Latch holder;
+    private volatile Latch latch;
     public static final int FREE = 0;
     public static final int HELD = 1;
-    private final static Latch DEFAULT = new Latch(FREE, null);
+    private final static Latch DEFAULT = new Latch(FREE, null ,null);
 
-    public SynchronizedTxSet(){
+    public GuardedTxSet(){
         this.txSet = ConcurrentHashMap.newKeySet();
         this.lock = new ReentrantLock();
         this.readerCount = new AtomicInteger();
-        this.holder = DEFAULT;
+        this.latch = DEFAULT;
     }
 
     //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
-    public void lockAndIncrement(Predicate<Set<Lock>> shouldHold, Set<Lock> held){
+    public void lockAndIncrement(Predicate<Set<GuardedTxSet>> shouldHold, Set<GuardedTxSet> held, Transaction tx){
         if (shouldHold.test(held)){
             this.lock.lock();
-            holder = new Latch(HELD, new CountDownLatch(1)); //Set both HELD and latch as a single atomic op. Prevents a scenario where a reader sees held but sees an old value of latch
-            //Signal readers to stop entering
+            latch = new Latch(HELD, tx.parent().unwrap() ,new CountDownLatch(1)); //Set both HELD and latch as a single atomic op. Prevents a scenario where a reader sees held but sees an old value of latch
             while (readerCount.get() != 0) Thread.onSpinWait(); //Wait for existing readers to commit
-
         }
     }
 
-
-    public Lock getLock(){
-        return lock;
+    public void lock(){
+        this.lock.lock();
     }
 
-    public Lock unlock(){
+    public void decrementThenRelease(){
+        if (latch.equals(DEFAULT)) {
+            this.lock.unlock();
+            return;
+        }
+
+        var prev = latch.writerLatch;
+        latch = DEFAULT; //Ensure writers see we're free, before we countdown to prevent TOCTOU NPEs
+        prev.countDown();
         this.lock.unlock();
-        return lock;
-    }
-
-    public Lock decrementThenRelease(){
-        var prevLatch = holder.writerLatch();
-        holder = DEFAULT;
-        prevLatch.countDown();
-        return this.unlock();
     }
 
     public boolean put(Transaction tx){
@@ -69,12 +66,12 @@ class SynchronizedTxSet {
         txSet.remove(tx);
     }
 
-    public boolean isHeld(){
-        return this.holder.status == HELD;
+    public boolean isHeld(Transaction tx){
+        return this.latch.status == HELD && !this.latch.parent.equals(tx.parent().unwrap());
     }
 
     public CountDownLatch latch(){
-        return holder.writerLatch;
+        return latch.writerLatch;
     }
 
     public void incrementReaderCount(){
@@ -87,6 +84,6 @@ class SynchronizedTxSet {
 
 
 
-    record Latch(int status, CountDownLatch writerLatch){}
+    record Latch(int status, Transaction parent ,CountDownLatch writerLatch){}
 
 }

@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class KeyToLockers<K> {
-    private final Map<K, Map<Operation, SynchronizedTxSet>> keyToLockers;
+    private final Map<K, Map<Operation, GuardedTxSet>> keyToLockers;
 
     public KeyToLockers() {
         this.keyToLockers = new ConcurrentHashMap<>();
@@ -15,13 +15,13 @@ public class KeyToLockers<K> {
 
     public void put(K key, Operation op, Transaction tx){
         var map = keyToLockers.computeIfAbsent(key, _ -> new ConcurrentHashMap<>());
-        var txSet = map.computeIfAbsent(op, _ -> new SynchronizedTxSet());
+        var txSet = map.computeIfAbsent(op, _ -> new GuardedTxSet());
         txSet.put(tx);
     }
 
-    public Option<SynchronizedTxSet> getOrCreate(K key, Operation op){
+    public Option<GuardedTxSet> getOrCreate(K key, Operation op){
         var map = keyToLockers.computeIfAbsent(key, _ -> new ConcurrentHashMap<>());
-        var txSet = map.computeIfAbsent(op, _ -> new SynchronizedTxSet());
+        var txSet = map.computeIfAbsent(op, _ -> new GuardedTxSet());
         return Option.some(txSet);
     }
 
