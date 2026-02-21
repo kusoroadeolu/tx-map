@@ -2,9 +2,7 @@ package io.github.kusoroadeolu.txcoll.map;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txcoll.Transaction;
-import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.ChildMapTransaction;
 import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.LockWrapper;
-import io.github.kusoroadeolu.txcoll.map.DefaultTransactionalMap.MapTransactionImpl;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,28 +14,19 @@ import java.util.function.BiFunction;
 /*
 * A abort of transactions in the set by a transaction happens before the acquisition of the write lock by the transaction that aborted
 * */
-class SynchronizedTxSet {
+class GuardedTxSet {
     private final Set<Transaction> txSet;
     private final Lock rLock;
-    private final ReentrantReadWriteLock rwLock;
     private final Lock wLock;
     private static final ILockBiFunction BI_FUNCTION = new ILockBiFunction();
 
-    public SynchronizedTxSet(){
+    public GuardedTxSet(){
         this.txSet = ConcurrentHashMap.newKeySet();
-        this.rwLock = new ReentrantReadWriteLock();
+        var rwLock = new ReentrantReadWriteLock();
         this.rLock = rwLock.readLock();
         this.wLock = rwLock.writeLock();
     }
 
-    //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
-    public void abortAll(ChildMapTransaction<?, ?> aborter){
-        synchronized (this){
-           txSet.stream().filter(tx -> !tx.parent().equals(aborter.parent())).forEach(Transaction::abort);
-           aborter.parent().map(p -> ((MapTransactionImpl<?, ?>) p).heldLocks)
-                    .ifSome(slw -> BI_FUNCTION.apply(slw , new LockWrapper(DefaultTransactionalMap.LockType.WRITE, aborter.operation, wLock)));
-        }
-    }
 
 
     public boolean put(Transaction tx){
@@ -48,26 +37,18 @@ class SynchronizedTxSet {
         txSet.remove(tx);
     }
 
-    public Lock uniqueAcquireReadLock(Set<LockWrapper> heldLocks, Operation op, Object key){
-        synchronized (this){ //In the case a value already added to the map but not aborted trys to acquire a lock while writer is aborting
-           return Option.ofNullable(heldLocks)
-                    .map(slw -> BI_FUNCTION.apply(slw, new LockWrapper(DefaultTransactionalMap.LockType.READ, op, rLock)))
-                    .unwrap();
-
-        }
+    public void uniqueAcquireReadLock(Set<LockWrapper> heldLocks, Operation op){
+        Option.ofNullable(heldLocks)
+                    .map(slw ->
+                            BI_FUNCTION.apply(slw, new LockWrapper(DefaultTransactionalMap.LockType.READ, op, rLock))
+                    );
     }
 
 
     //This is only held by write transactions, for read transactions that
-    public Lock wLock(){
+    public Lock writeLock(){
         return this.wLock;
     }
-
-
-    public boolean writeLockHeldByCurrentThread(){
-        return rwLock.isWriteLockedByCurrentThread();
-    }
-
 
     private record ILockBiFunction() implements BiFunction<Set<LockWrapper>, LockWrapper, Lock>{
         @Override
