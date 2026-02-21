@@ -58,7 +58,7 @@ public class ContentionBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        txMap = TransactionalMap.createSnapshot();
+        txMap = TransactionalMap.createCopyOnWrite();
         // Pre-populate all keys so removes and gets have something to work with
         try (var tx = txMap.beginTx()) {
             for (String key : KEYS) tx.put(key, 0);
@@ -179,61 +179,61 @@ public class ContentionBenchmark {
     }
 
 
-    // -------------------------------------------------------------------------
-    // Read heavy plus size — 90% get, 10% put
-    // -------------------------------------------------------------------------
-
-    @Benchmark
-    @Threads(1)
-    public void readHeavy_plusSize_1thread(ThreadState ts, Blackhole bh) {
-        readHeavyPlusSize(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(2)
-    public void readHeavy_plusSize_2threads(ThreadState ts, Blackhole bh) {
-        readHeavyPlusSize(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(4)
-    public void readHeavy_plusSize_4threads(ThreadState ts, Blackhole bh) {
-        readHeavyPlusSize(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(8)
-    public void readHeavy_plusSize_8threads(ThreadState ts, Blackhole bh) {
-        readHeavyPlusSize(ts, bh);
-    }
-
-    // -------------------------------------------------------------------------
-    // Balanced plus size — 50% get, 50% put
-    // -------------------------------------------------------------------------
-
-    @Benchmark
-    @Threads(1)
-    public void balanced_plusSize_1thread(ThreadState ts, Blackhole bh) {
-        balancedPlusSize(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(2)
-    public void balanced_plusSize_2threads(ThreadState ts , Blackhole bh) {
-        balancedPlusSize(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(4)
-    public void balanced_plusSize_4threads(ThreadState ts, Blackhole bh) {
-        balancedPlusSize(ts,bh);
-    }
-
-    @Benchmark
-    @Threads(8)
-    public void balanced_plusSize_8threads(ThreadState ts, Blackhole bh) {
-        balancedPlusSize(ts, bh);
-    }
+//    // -------------------------------------------------------------------------
+//    // Read heavy plus size — 90% get, 10% put
+//    // -------------------------------------------------------------------------
+//
+//    @Benchmark
+//    @Threads(1)
+//    public void readHeavy_plusSize_1thread(ThreadState ts, Blackhole bh) {
+//        readHeavyPlusSize(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(2)
+//    public void readHeavy_plusSize_2threads(ThreadState ts, Blackhole bh) {
+//        readHeavyPlusSize(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(4)
+//    public void readHeavy_plusSize_4threads(ThreadState ts, Blackhole bh) {
+//        readHeavyPlusSize(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(8)
+//    public void readHeavy_plusSize_8threads(ThreadState ts, Blackhole bh) {
+//        readHeavyPlusSize(ts, bh);
+//    }
+//
+//    // -------------------------------------------------------------------------
+//    // Balanced plus size — 50% get, 50% put
+//    // -------------------------------------------------------------------------
+//
+//    @Benchmark
+//    @Threads(1)
+//    public void balanced_plusSize_1thread(ThreadState ts, Blackhole bh) {
+//        balancedPlusSize(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(2)
+//    public void balanced_plusSize_2threads(ThreadState ts , Blackhole bh) {
+//        balancedPlusSize(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(4)
+//    public void balanced_plusSize_4threads(ThreadState ts, Blackhole bh) {
+//        balancedPlusSize(ts,bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(8)
+//    public void balanced_plusSize_8threads(ThreadState ts, Blackhole bh) {
+//        balancedPlusSize(ts, bh);
+//    }
 
 
     // -------------------------------------------------------------------------

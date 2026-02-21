@@ -19,22 +19,24 @@ import java.util.function.Predicate;
 * */
 class GuardedTxSet {
     private final Set<Transaction> txSet;
-    private final Lock writeLock;
+    private final ReentrantLock writeLock;
     private final AtomicInteger readerCount;
     private volatile Latch latch;
 
+
     //WRITER STATUS
     public static final int FREE = 0;
-    public static final int HELD = 1;
-    private final static Latch DEFAULT = new Latch(FREE, null ,null);
+    public static final int HELD = 2;
+    private final static Latch FREE_LATCH = new Latch(FREE, null ,null);
 
 
 
     public GuardedTxSet(){
-        this.latch = DEFAULT;
+        this.latch = FREE_LATCH;
         this.txSet = ConcurrentHashMap.newKeySet();
         this.writeLock = new ReentrantLock();
         this.readerCount = new AtomicInteger();
+
     }
 
     //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
@@ -51,13 +53,13 @@ class GuardedTxSet {
     }
 
     public void release(){
-        if (latch.equals(DEFAULT)) {
+        if (latch.equals(FREE_LATCH)) {
             this.writeLock.unlock();
             return;
         }
 
         var prev = latch.cLatch; //This cant be reordered cuz of synchronization guarantees
-        latch = DEFAULT; //Ensure writers see we're free, before we countdown to prevent TOCTOU NPEs
+        latch = FREE_LATCH; //Ensure writers see we're free, before we countdown to prevent TOCTOU NPEs
         prev.countDown();
         this.writeLock.unlock();
     }
@@ -79,14 +81,14 @@ class GuardedTxSet {
     }
 
     public void decrementReaderCount(){
-        readerCount.decrementAndGet();
+       int count = readerCount.decrementAndGet();
     }
 
 
 
     record Latch(int status, Transaction parent ,CountDownLatch cLatch){
         public boolean isHeld(Transaction tx){
-            return this.status == HELD && !this.parent.equals(tx.parent().unwrap());
+            return (this.status == HELD) && !this.parent.equals(tx.parent().unwrap());
         }
     }
 

@@ -33,7 +33,7 @@ public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
     private final LockHolder<K, V> holder;
     private final ConcurrentMap<K, V> map;
 
-    SnapshotTransactionalMap() {
+    public SnapshotTransactionalMap() {
         this.holder = new LockHolder<>();
         this.map = new ConcurrentHashMap<>();
     }
@@ -48,7 +48,7 @@ public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
         final SnapshotTransactionalMap<K, V> txMap;
 
 
-        //Local field
+        //Local fields
         final List<ChildMapTransaction<K, V>> txs;
         final Set<Lock> heldLocks;
         TransactionState state;
@@ -171,8 +171,11 @@ public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
         public void commit() {
             tx.size = tx.txMap.map.size();
             tx.txs.forEach(c -> {
-                var key = c.key.unwrap();
-                if (c.operation != SIZE && !tx.storeBuf.containsKey(key)) tx.storeBuf.put(key, tx.txMap.map.get(key));
+
+                if (c.operation != SIZE ){
+                    var key = c.key.unwrap();
+                    tx.storeBuf.put(key, tx.txMap.map.get(key));
+                }
             });
             tx.txs.forEach(ChildMapTransaction::commit);
             tx.heldLocks.forEach(Lock::unlock); //Then unlock all locks
@@ -192,15 +195,13 @@ public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
             private final MapTransactionImpl<K, V> parent;
             final Option<K> key;
             final Operation operation;
-            final Option<Lock> lock;
             TransactionState state;
             private final CommitHandler commitHandler;
             private final AbortHandler abortHandler;
             private final FutureValue<?> future;
 
-        public ChildMapTransaction(MapTransactionImpl<K, V> parent, Operation operation, Option<K> key, FutureValue<?> future, Option<Lock> lock) {
+        public ChildMapTransaction(MapTransactionImpl<K, V> parent, Operation operation, Option<K> key, FutureValue<?> future) {
             this.operation = operation;
-            this.lock = lock;
             this.parent = parent;
             this.state = SCHEDULED;
             this.commitHandler = new ChildTxCommitHandler<>(this);
@@ -209,12 +210,8 @@ public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
             this.future = future;
         }
 
-        public ChildMapTransaction(MapTransactionImpl<K, V> parent, Operation operation, Option<K> key, FutureValue<?> future){
-            this(parent, operation, key, future, Option.none());
-        }
-
         public ChildMapTransaction(MapTransactionImpl<K, V> parent, Operation operation, FutureValue<?> future){
-            this(parent, operation, Option.none(), future, Option.none());
+            this(parent, operation, Option.none(), future);
         }
 
 

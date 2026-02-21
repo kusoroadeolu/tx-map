@@ -6,6 +6,7 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class FutureValue<V> {
     private final CompletableFuture<V> future;
@@ -31,6 +32,7 @@ public class FutureValue<V> {
     public boolean isComplete(){
         return future.isDone();
     }
+
 
     @SuppressWarnings("unchecked")
     public void complete(@NonNull Object value){

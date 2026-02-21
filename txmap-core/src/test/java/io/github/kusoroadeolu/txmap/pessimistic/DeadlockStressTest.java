@@ -38,7 +38,7 @@ public class DeadlockStressTest {
         System.out.printf("Threads: %d | Ops/thread: %d | Key space: %d | Tx timeout: %dms%n%n",
                 NUM_THREADS, OPS_PER_THREAD, KEY_SPACE, TX_TIMEOUT_MS);
 
-        var txMap = TransactionalMap.<Integer, String>createSnapshot();
+        var txMap = TransactionalMap.<Integer, String>createCopyOnWrite();
         var executor = Executors.newFixedThreadPool(NUM_THREADS);
         var futures = new ArrayList<Future<?>>();
 

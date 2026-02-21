@@ -2,6 +2,7 @@ package io.github.kusoroadeolu.txmap.pessimistic;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.FutureValue;
+import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,11 +13,11 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TransactionalMapTest {
-    private PessimisticTransactionalMap<String, Integer> txMap;
+    private TransactionalMap<String, Integer> txMap;
 
     @BeforeEach
     void setUp() {
-        txMap = new PessimisticTransactionalMap<>();
+        txMap = TransactionalMap.createSnapshot();
     }
 
     // -------------------------------------------------------------------------
