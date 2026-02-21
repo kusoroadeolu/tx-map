@@ -1,0 +1,584 @@
+[
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_batch_16threads",
+    "mode" : "thrpt",
+    "threads" : 16,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 1356345.2513349266,
+      "scoreError" : 127851.19569916445,
+      "scoreConfidence" : [
+        1228494.0556357622,
+        1484196.447034091
+      ],
+      "scorePercentiles" : {
+        "0.0" : 1193169.7597664907,
+        "50.0" : 1352136.5305714346,
+        "90.0" : 1450018.9814402012,
+        "95.0" : 1450266.5090480729,
+        "99.0" : 1450266.5090480729,
+        "99.9" : 1450266.5090480729,
+        "99.99" : 1450266.5090480729,
+        "99.999" : 1450266.5090480729,
+        "99.9999" : 1450266.5090480729,
+        "100.0" : 1450266.5090480729
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          1416001.572330263,
+          1447791.2329693553,
+          1450266.5090480729,
+          1425592.655251226,
+          1336783.1364629741
+        ],
+        [
+          1353554.9143008313,
+          1350718.146842038,
+          1340598.6477529786,
+          1193169.7597664907,
+          1248975.938625033
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_batch_1thread",
+    "mode" : "thrpt",
+    "threads" : 1,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 678097.3310377608,
+      "scoreError" : 55941.36439991597,
+      "scoreConfidence" : [
+        622155.9666378449,
+        734038.6954376767
+      ],
+      "scorePercentiles" : {
+        "0.0" : 622796.8964156804,
+        "50.0" : 681571.5535429326,
+        "90.0" : 735961.1371070556,
+        "95.0" : 739188.1347147308,
+        "99.0" : 739188.1347147308,
+        "99.9" : 739188.1347147308,
+        "99.99" : 739188.1347147308,
+        "99.999" : 739188.1347147308,
+        "99.9999" : 739188.1347147308,
+        "100.0" : 739188.1347147308
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          703831.1768021319,
+          670632.2019806153,
+          622796.8964156804,
+          661243.697747782,
+          699835.8667379725
+        ],
+        [
+          627618.5329580419,
+          706918.1586379786,
+          656397.7392774244,
+          739188.1347147308,
+          692510.90510525
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_batch_2threads",
+    "mode" : "thrpt",
+    "threads" : 2,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 887583.6415384657,
+      "scoreError" : 136777.6439517567,
+      "scoreConfidence" : [
+        750805.997586709,
+        1024361.2854902225
+      ],
+      "scorePercentiles" : {
+        "0.0" : 688069.0169553433,
+        "50.0" : 889574.1165549967,
+        "90.0" : 1029710.9470934727,
+        "95.0" : 1037859.7212968965,
+        "99.0" : 1037859.7212968965,
+        "99.9" : 1037859.7212968965,
+        "99.99" : 1037859.7212968965,
+        "99.999" : 1037859.7212968965,
+        "99.9999" : 1037859.7212968965,
+        "100.0" : 1037859.7212968965
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          873263.8313254027,
+          1037859.7212968965,
+          862949.9749498985,
+          932152.1129522873,
+          833297.0970134512
+        ],
+        [
+          688069.0169553433,
+          880707.3905426359,
+          956371.9792626584,
+          912724.4485187258,
+          898440.8425673575
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_batch_4threads",
+    "mode" : "thrpt",
+    "threads" : 4,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 1176823.62922709,
+      "scoreError" : 59451.09922884769,
+      "scoreConfidence" : [
+        1117372.5299982422,
+        1236274.7284559377
+      ],
+      "scorePercentiles" : {
+        "0.0" : 1083427.1818480687,
+        "50.0" : 1178373.515483673,
+        "90.0" : 1219009.2705884783,
+        "95.0" : 1219104.591461531,
+        "99.0" : 1219104.591461531,
+        "99.9" : 1219104.591461531,
+        "99.99" : 1219104.591461531,
+        "99.999" : 1219104.591461531,
+        "99.9999" : 1219104.591461531,
+        "100.0" : 1219104.591461531
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          1155628.0856133043,
+          1179732.5725287339,
+          1172926.1685223023,
+          1166747.0233452625,
+          1218151.382731004
+        ],
+        [
+          1186621.9048182503,
+          1219104.591461531,
+          1177014.458438612,
+          1083427.1818480687,
+          1208882.9229638325
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_batch_8threads",
+    "mode" : "thrpt",
+    "threads" : 8,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 1302563.7043949172,
+      "scoreError" : 34055.068654547795,
+      "scoreConfidence" : [
+        1268508.6357403696,
+        1336618.773049465
+      ],
+      "scorePercentiles" : {
+        "0.0" : 1259506.4429264814,
+        "50.0" : 1304133.792990754,
+        "90.0" : 1326643.5637402947,
+        "95.0" : 1326858.364853134,
+        "99.0" : 1326858.364853134,
+        "99.9" : 1326858.364853134,
+        "99.99" : 1326858.364853134,
+        "99.999" : 1326858.364853134,
+        "99.9999" : 1326858.364853134,
+        "100.0" : 1326858.364853134
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          1285299.823239541,
+          1284254.4908164705,
+          1296948.5213348875,
+          1259506.4429264814,
+          1292118.9502916476
+        ],
+        [
+          1323163.8046674477,
+          1321457.2274482006,
+          1324710.3537247407,
+          1326858.364853134,
+          1311319.0646466205
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_put_16threads",
+    "mode" : "thrpt",
+    "threads" : 16,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 3375039.4053673176,
+      "scoreError" : 104454.37505988455,
+      "scoreConfidence" : [
+        3270585.030307433,
+        3479493.780427202
+      ],
+      "scorePercentiles" : {
+        "0.0" : 3272155.1180837573,
+        "50.0" : 3394026.63026278,
+        "90.0" : 3475373.073261723,
+        "95.0" : 3480697.1835231367,
+        "99.0" : 3480697.1835231367,
+        "99.9" : 3480697.1835231367,
+        "99.99" : 3480697.1835231367,
+        "99.999" : 3480697.1835231367,
+        "99.9999" : 3480697.1835231367,
+        "100.0" : 3480697.1835231367
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          3391682.2360767913,
+          3294807.2503525005,
+          3292032.324808747,
+          3272155.1180837573,
+          3355987.9537726394
+        ],
+        [
+          3480697.1835231367,
+          3425545.792707094,
+          3396371.024448769,
+          3413659.0889907475,
+          3427456.080908997
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_put_1thread",
+    "mode" : "thrpt",
+    "threads" : 1,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 1815442.7457630225,
+      "scoreError" : 212668.57891560212,
+      "scoreConfidence" : [
+        1602774.1668474204,
+        2028111.3246786245
+      ],
+      "scorePercentiles" : {
+        "0.0" : 1536566.881205159,
+        "50.0" : 1801270.5610718,
+        "90.0" : 2033122.1162655153,
+        "95.0" : 2039150.304407767,
+        "99.0" : 2039150.304407767,
+        "99.9" : 2039150.304407767,
+        "99.99" : 2039150.304407767,
+        "99.999" : 2039150.304407767,
+        "99.9999" : 2039150.304407767,
+        "100.0" : 2039150.304407767
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          1801465.8613852214,
+          1774709.5512681257,
+          1801075.2607583785,
+          1536566.881205159,
+          1759237.5273938123
+        ],
+        [
+          2039150.304407767,
+          1714226.8820289017,
+          1898070.5166901425,
+          1978868.4229852487,
+          1851056.2495074652
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_put_2threads",
+    "mode" : "thrpt",
+    "threads" : 2,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 2434693.782710832,
+      "scoreError" : 328171.23119337927,
+      "scoreConfidence" : [
+        2106522.551517453,
+        2762865.013904211
+      ],
+      "scorePercentiles" : {
+        "0.0" : 2170460.290506632,
+        "50.0" : 2351882.361558487,
+        "90.0" : 2806340.483864837,
+        "95.0" : 2821413.9061816824,
+        "99.0" : 2821413.9061816824,
+        "99.9" : 2821413.9061816824,
+        "99.99" : 2821413.9061816824,
+        "99.999" : 2821413.9061816824,
+        "99.9999" : 2821413.9061816824,
+        "100.0" : 2821413.9061816824
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          2223961.785842018,
+          2271053.2204269487,
+          2170460.290506632,
+          2310752.8775768233,
+          2324874.649199336
+        ],
+        [
+          2821413.9061816824,
+          2604999.5939296614,
+          2569851.7465143525,
+          2670679.683013226,
+          2378890.0739176385
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_put_4threads",
+    "mode" : "thrpt",
+    "threads" : 4,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 3192019.990372364,
+      "scoreError" : 240834.82816924635,
+      "scoreConfidence" : [
+        2951185.1622031177,
+        3432854.81854161
+      ],
+      "scorePercentiles" : {
+        "0.0" : 2910346.442947577,
+        "50.0" : 3178273.841918067,
+        "90.0" : 3401537.4640118047,
+        "95.0" : 3404131.039021924,
+        "99.0" : 3404131.039021924,
+        "99.9" : 3404131.039021924,
+        "99.99" : 3404131.039021924,
+        "99.999" : 3404131.039021924,
+        "99.9999" : 3404131.039021924,
+        "100.0" : 3404131.039021924
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          3087170.181859982,
+          2910346.442947577,
+          3050321.83345577,
+          3109318.782336272,
+          3151373.5333298817
+        ],
+        [
+          3404131.039021924,
+          3205174.1505062524,
+          3291823.2201243048,
+          3332345.431220944,
+          3378195.2889207294
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  },
+  {
+    "jmhVersion" : "1.37",
+    "benchmark" : "io.github.kusoroadeolu.txmap.benchmarks.DisjointKeyBenchmark.txMap_put_8threads",
+    "mode" : "thrpt",
+    "threads" : 8,
+    "forks" : 2,
+    "jvm" : "C:\\Program Files\\Java\\jdk-25\\bin\\java.exe",
+    "jvmArgs" : [
+    ],
+    "jdkVersion" : "25",
+    "vmName" : "Java HotSpot(TM) 64-Bit Server VM",
+    "vmVersion" : "25+37-LTS-3491",
+    "warmupIterations" : 5,
+    "warmupTime" : "1 s",
+    "warmupBatchSize" : 1,
+    "measurementIterations" : 5,
+    "measurementTime" : "1 s",
+    "measurementBatchSize" : 1,
+    "primaryMetric" : {
+      "score" : 3138408.5836350056,
+      "scoreError" : 180520.00248136124,
+      "scoreConfidence" : [
+        2957888.5811536442,
+        3318928.586116367
+      ],
+      "scorePercentiles" : {
+        "0.0" : 2897980.677837015,
+        "50.0" : 3132991.7821043124,
+        "90.0" : 3273897.693779587,
+        "95.0" : 3276058.517836288,
+        "99.0" : 3276058.517836288,
+        "99.9" : 3276058.517836288,
+        "99.99" : 3276058.517836288,
+        "99.999" : 3276058.517836288,
+        "99.9999" : 3276058.517836288,
+        "100.0" : 3276058.517836288
+      },
+      "scoreUnit" : "ops/s",
+      "rawData" : [
+        [
+          3114902.1659252476,
+          3057341.694300879,
+          3101113.9853371247,
+          3276058.517836288,
+          3254450.277269275
+        ],
+        [
+          2897980.677837015,
+          3151081.398283377,
+          3232025.390554664,
+          3250574.663101717,
+          3048557.065904471
+        ]
+      ]
+    },
+    "secondaryMetrics" : {
+    }
+  }
+]
+
+

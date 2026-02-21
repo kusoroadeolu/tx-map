@@ -1,5 +1,7 @@
 package io.github.kusoroadeolu.txmap.pessimistic;
 
+import io.github.kusoroadeolu.txmap.TransactionalMap;
+
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.*;
@@ -36,7 +38,7 @@ public class DeadlockStressTest {
         System.out.printf("Threads: %d | Ops/thread: %d | Key space: %d | Tx timeout: %dms%n%n",
                 NUM_THREADS, OPS_PER_THREAD, KEY_SPACE, TX_TIMEOUT_MS);
 
-        var txMap = new PessimisticTransactionalMap<Integer, String>();
+        var txMap = TransactionalMap.<Integer, String>createSnapshot();
         var executor = Executors.newFixedThreadPool(NUM_THREADS);
         var futures = new ArrayList<Future<?>>();
 
@@ -85,7 +87,7 @@ public class DeadlockStressTest {
         }
     }
 
-    static void runThread(PessimisticTransactionalMap<Integer, String> txMap, int threadId) {
+    static void runThread(TransactionalMap<Integer, String> txMap, int threadId) {
         var rng = new Random(threadId * 31L);
         // Use a single-thread executor per transaction so we can apply a timeout to each tx
         var txExecutor = Executors.newSingleThreadExecutor();

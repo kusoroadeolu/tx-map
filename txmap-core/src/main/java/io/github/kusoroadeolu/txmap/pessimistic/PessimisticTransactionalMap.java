@@ -14,11 +14,11 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 
 import static io.github.kusoroadeolu.txmap.TransactionState.*;
-import static io.github.kusoroadeolu.txmap.pessimistic.Operation.ContainsKeyOperation.CONTAINS;
-import static io.github.kusoroadeolu.txmap.pessimistic.Operation.GetOperation.GET;
-import static io.github.kusoroadeolu.txmap.pessimistic.Operation.ModifyType.PUT;
-import static io.github.kusoroadeolu.txmap.pessimistic.Operation.ModifyType.REMOVE;
-import static io.github.kusoroadeolu.txmap.pessimistic.Operation.SizeOperation.SIZE;
+import static io.github.kusoroadeolu.txmap.Operation.ContainsKeyOperation.CONTAINS;
+import static io.github.kusoroadeolu.txmap.Operation.GetOperation.GET;
+import static io.github.kusoroadeolu.txmap.Operation.ModifyType.PUT;
+import static io.github.kusoroadeolu.txmap.Operation.ModifyType.REMOVE;
+import static io.github.kusoroadeolu.txmap.Operation.SizeOperation.SIZE;
 
 /*
 * Happens before guarantees
@@ -170,7 +170,7 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
         @Override
         public void abort() {
             tx.txs.forEach(ChildMapTransaction::abort);
-            tx.heldLocks.forEach(GuardedTxSet::decrementThenRelease);
+            tx.heldLocks.forEach(GuardedTxSet::release);
             tx.state = TransactionState.ABORTED;
             tx.clearAll();
         }
@@ -185,7 +185,7 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
             }
 
             tx.txs.forEach(ChildMapTransaction::commit);
-            tx.heldLocks.forEach(GuardedTxSet::decrementThenRelease); //Then unlock all locks
+            tx.heldLocks.forEach(GuardedTxSet::release); //Then unlock all locks
             //TODO add cleanup for empty sets
             tx.txs.forEach(cmtx -> {
                 switch (cmtx.operation){
@@ -394,13 +394,13 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
             //Do the same thing for GET ops as well
             txMap.keyToLockers.getOrCreate(key, GET)
                     .ifSome(txSet -> {
-                        txSet.lockAndIncrement(s -> s.add(txSet), heldLocks, cmtx);
+                        txSet.lock(s -> s.add(txSet), heldLocks, cmtx);
                     });
 
 
             txMap.keyToLockers.getOrCreate(key, CONTAINS)
                     .ifSome(txSet -> {
-                        txSet.lockAndIncrement(s -> s.add(txSet), heldLocks, cmtx);
+                        txSet.lock(s -> s.add(txSet), heldLocks, cmtx);
                     });
 
             //Now that we have the iLock for contains key , we can check the underlying map to see if we should obtain the size iLock too
@@ -409,11 +409,11 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
             var opType = ((Operation.ModifyOperation<?>) op).type();
              switch (opType){
                  case PUT -> {
-                     if (!containsKey) sizeSet.lockAndIncrement(s -> s.contains(sizeSet), heldLocks, cmtx);
+                     if (!containsKey) sizeSet.lock(s -> s.contains(sizeSet), heldLocks, cmtx);
                  }
 
                  case REMOVE -> {
-                    if (containsKey) sizeSet.lockAndIncrement(s -> s.contains(sizeSet), heldLocks, cmtx);
+                    if (containsKey) sizeSet.lock(s -> s.contains(sizeSet), heldLocks, cmtx);
 
                 }
 

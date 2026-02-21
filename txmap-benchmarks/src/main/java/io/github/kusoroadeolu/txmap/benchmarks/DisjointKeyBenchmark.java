@@ -55,7 +55,7 @@ public class DisjointKeyBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        txMap = TransactionalMap.create();
+        txMap = TransactionalMap.createSnapshot();
         rawMap = new ConcurrentHashMap<>();
         threadCounter.set(0);
     }

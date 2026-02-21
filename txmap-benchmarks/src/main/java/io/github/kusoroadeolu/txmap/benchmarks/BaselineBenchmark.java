@@ -41,7 +41,7 @@ public class BaselineBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        txMap = TransactionalMap.create();
+        txMap = TransactionalMap.createSnapshot();
         rawMap = new ConcurrentHashMap<>();
 
         // Pre-populate so get/remove benchmarks have something to work with
