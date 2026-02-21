@@ -1,4 +1,4 @@
-package io.github.kusoroadeolu.txmap.map;
+package io.github.kusoroadeolu.txmap.pessimistic;
 
 import io.github.kusoroadeolu.ferrous.option.None;
 import io.github.kusoroadeolu.ferrous.option.Option;
@@ -14,11 +14,11 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 
 import static io.github.kusoroadeolu.txmap.TransactionState.*;
-import static io.github.kusoroadeolu.txmap.map.Operation.ContainsKeyOperation.CONTAINS;
-import static io.github.kusoroadeolu.txmap.map.Operation.GetOperation.GET;
-import static io.github.kusoroadeolu.txmap.map.Operation.ModifyType.PUT;
-import static io.github.kusoroadeolu.txmap.map.Operation.ModifyType.REMOVE;
-import static io.github.kusoroadeolu.txmap.map.Operation.SizeOperation.SIZE;
+import static io.github.kusoroadeolu.txmap.pessimistic.Operation.ContainsKeyOperation.CONTAINS;
+import static io.github.kusoroadeolu.txmap.pessimistic.Operation.GetOperation.GET;
+import static io.github.kusoroadeolu.txmap.pessimistic.Operation.ModifyType.PUT;
+import static io.github.kusoroadeolu.txmap.pessimistic.Operation.ModifyType.REMOVE;
+import static io.github.kusoroadeolu.txmap.pessimistic.Operation.SizeOperation.SIZE;
 
 /*
 * Happens before guarantees
@@ -31,20 +31,20 @@ import static io.github.kusoroadeolu.txmap.map.Operation.SizeOperation.SIZE;
  * 7. During commits, the release of all held locks happens before the removal of open nested child transactions. This guarantee is upheld by deterministic ordering
  * 8. During aborts, the release of all held locks happens before the removal of open nested child transactions. This guarantee is upheld by deterministic ordering
  * */
-public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
+public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V> {
     private final ConcurrentMap<K, V> map;
 
     //Shared state
     private final KeyToLockers<K> keyToLockers;
     private final GuardedTxSet sizeLockers;
 
-    DefaultTransactionalMap(ConcurrentMap<K, V> map, KeyToLockers<K> keyToLockers, GuardedTxSet sizeLockers) {
+    PessimisticTransactionalMap(ConcurrentMap<K, V> map, KeyToLockers<K> keyToLockers, GuardedTxSet sizeLockers) {
         this.map = map;
         this.keyToLockers = keyToLockers;
         this.sizeLockers = sizeLockers;
     }
 
-    public DefaultTransactionalMap(){
+    public PessimisticTransactionalMap(){
         this(new ConcurrentHashMap<>(), new KeyToLockers<>(), new GuardedTxSet());
     }
 
@@ -55,7 +55,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
 
     static class MapTransactionImpl<K, V> implements MapTransaction<K, V> {
         //This transactional map
-        final DefaultTransactionalMap<K, V> txMap;
+        final PessimisticTransactionalMap<K, V> txMap;
 
         //Local field
         final List<ChildMapTransaction<K, V>> txs;
@@ -66,7 +66,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
         boolean hasAborted;
 
 
-        public MapTransactionImpl(DefaultTransactionalMap<K, V> txMap){
+        public MapTransactionImpl(PessimisticTransactionalMap<K, V> txMap){
             this.txMap = txMap;
             this.heldLocks = new HashSet<>();
             this.txs = new ArrayList<>();
@@ -384,7 +384,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
         }
 
 
-        void handleWriteOps(DefaultTransactionalMap<K, V> txMap, K key, Operation op){
+        void handleWriteOps(PessimisticTransactionalMap<K, V> txMap, K key, Operation op){
             //Ensure we only lock once, since a tx is basically only on a single thread, we cant really get deadlocks, but we want to ensure we release all locks
             //Then we want to grab to writeLocks for the contains operation, we want to check if the underlying map contains the key, so we can grab the size lock as well
             //Then lock the write lock to prevent a situation where we cant use the write lock cuz we have the read iLock

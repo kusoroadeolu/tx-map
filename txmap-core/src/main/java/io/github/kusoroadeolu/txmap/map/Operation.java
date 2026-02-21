@@ -1,4 +1,4 @@
-package io.github.kusoroadeolu.txmap.map;
+package io.github.kusoroadeolu.txmap.pessimistic;
 
 public sealed interface Operation permits Operation.ModifyOperation, Operation.ContainsKeyOperation, Operation.SizeOperation, Operation.GetOperation {
      record ModifyOperation<E>(E element, ModifyType type) implements Operation{

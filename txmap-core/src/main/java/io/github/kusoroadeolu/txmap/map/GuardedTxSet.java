@@ -1,4 +1,4 @@
-package io.github.kusoroadeolu.txmap.map;
+package io.github.kusoroadeolu.txmap.pessimistic;
 
 import io.github.kusoroadeolu.txmap.Transaction;
 
@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.StampedLock;
 import java.util.function.Predicate;
 
 // So on this branch, rather than aborts, we're simply going to use optimistic integers
@@ -19,7 +19,8 @@ import java.util.function.Predicate;
 * */
 class GuardedTxSet {
     private final Set<Transaction> txSet;
-    private final Lock lock;  //This lock is mainly meant for write ops, read operations use optimistic validation instead
+    private final StampedLock stampLock;  //Optimistic reads using a stamped lock
+    private final Lock writeLock;
     private final AtomicInteger readerCount;
     private volatile Latch latch;
 
@@ -33,33 +34,34 @@ class GuardedTxSet {
     public GuardedTxSet(){
         this.latch = DEFAULT;
         this.txSet = ConcurrentHashMap.newKeySet();
-        this.lock = new ReentrantLock();
+        this.stampLock = new StampedLock();
+        this.writeLock = this.stampLock.asWriteLock();
         this.readerCount = new AtomicInteger();
     }
 
     //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
     public void lockAndIncrement(Predicate<Set<GuardedTxSet>> shouldHold, Set<GuardedTxSet> held, Transaction tx){
         if (shouldHold.test(held)){
-            this.lock.lock();
+            this.stampLock.writeLock();
             latch = new Latch(HELD, tx.parent().unwrap() ,new CountDownLatch(1)); //Set both HELD and latch as a single atomic op. Prevents a scenario where a reader sees held but sees an old value of latch
             while (readerCount.get() > 0) Thread.onSpinWait(); //Wait for existing readers to commit
         }
     }
 
     public void lock(){
-        this.lock.lock();
+        this.writeLock.lock();
     }
 
     public void decrementThenRelease(){
         if (latch.equals(DEFAULT)) {
-            this.lock.unlock();
+            this.writeLock.unlock();
             return;
         }
 
         var prev = latch.cLatch; //This cant be reordered cuz of synchronization guarantees
         latch = DEFAULT; //Ensure writers see we're free, before we countdown to prevent TOCTOU NPEs
         prev.countDown();
-        this.lock.unlock();
+        this.writeLock.unlock();
     }
 
     public boolean put(Transaction tx){

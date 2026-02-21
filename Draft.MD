@@ -61,11 +61,10 @@ try(var tx = map.beginTx()){
 
 ## Semantic flow of implementation
 ### Shared Fields needed
-KeyLockers -> These are transaction operating on a specific key, regardless of its semantics
-SizeLockers -> These are transaction which directly affect the size of the collection
+KeyLockers -> These are read transactions operating on a specific key
+SizeLockers -> These are transactions which directly affect the size of the collection
 
 ### Fields per parent transaction
-delta -> change in size of a transaction 
 set key locks -> Set of locks held by the transaction //Though this might not be necessary
 store buffer -> storing the transaction's semantics
 
