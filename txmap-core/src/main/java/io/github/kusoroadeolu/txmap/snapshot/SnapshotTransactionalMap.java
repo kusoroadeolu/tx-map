@@ -270,8 +270,10 @@ public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
                 }
 
                 case Operation.GetOperation _ -> {
-                    var v = buf.get(keyOption.unwrap());
+                    var key = keyOption.unwrap();
+                    var v = buf.get(key);
                     Option<V> opt = Option.ofNullable(v);
+                    if (opt.isNone()) opt = Option.ofNullable(underlying.get(key)); //Try a dirty read
                     cmtx.state = TransactionState.COMMITTED;
                     cmtx.future.complete(opt);
                 }

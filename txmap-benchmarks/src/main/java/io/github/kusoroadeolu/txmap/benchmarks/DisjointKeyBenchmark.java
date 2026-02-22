@@ -12,8 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Disjoint key throughput benchmark — multiple threads, zero key overlap.
  *
  * Goal: verify the implementation scales with parallelism when there's no
- * reason for contention. Each thread operates exclusively on its own key
- * so no aborts should occur.
+ * reason for contention. Each thread operates exclusively on its own key.
  *
  * What to look for:
  *  - Throughput should scale close to linearly with thread count
@@ -128,69 +127,7 @@ public class DisjointKeyBenchmark {
         txMap_batch(ts, bh);
     }
 
-//    // -------------------------------------------------------------------------
-//    // Equivalent rawMap benchmarks
-//    // -------------------------------------------------------------------------
-//
-//    @Benchmark
-//    @Threads(1)
-//    public void rawMap_put_1thread(ThreadState ts, Blackhole bh) {
-//        bh.consume(rawMap.put(ts.key, 42));
-//    }
-//
-//    @Benchmark
-//    @Threads(2)
-//    public void rawMap_put_2threads(ThreadState ts, Blackhole bh) {
-//        bh.consume(rawMap.put(ts.key, 42));
-//    }
-//
-//    @Benchmark
-//    @Threads(4)
-//    public void rawMap_put_4threads(ThreadState ts, Blackhole bh) {
-//        bh.consume(rawMap.put(ts.key, 42));
-//    }
-//
-//    @Benchmark
-//    @Threads(8)
-//    public void rawMap_put_8threads(ThreadState ts, Blackhole bh) {
-//        bh.consume(rawMap.put(ts.key, 42));
-//    }
-//
-//    @Benchmark
-//    @Threads(16)
-//    public void rawMap_put_16threads(ThreadState ts, Blackhole bh) {
-//        bh.consume(rawMap.put(ts.key, 42));
-//    }
-//
-//    @Benchmark
-//    @Threads(1)
-//    public void rawMap_batch_1thread(ThreadState ts, Blackhole bh) {
-//        rawMap_batch(ts, bh);
-//    }
-//
-//    @Benchmark
-//    @Threads(2)
-//    public void rawMap_batch_2threads(ThreadState ts, Blackhole bh) {
-//        rawMap_batch(ts, bh);
-//    }
-//
-//    @Benchmark
-//    @Threads(4)
-//    public void rawMap_batch_4threads(ThreadState ts, Blackhole bh) {
-//        rawMap_batch(ts, bh);
-//    }
-//
-//    @Benchmark
-//    @Threads(8)
-//    public void rawMap_batch_8threads(ThreadState ts, Blackhole bh) {
-//        rawMap_batch(ts, bh);
-//    }
-//
-//    @Benchmark
-//    @Threads(16)
-//    public void rawMap_batch_16threads(ThreadState ts, Blackhole bh) {
-//        rawMap_batch(ts, bh);
-//    }
+
 
     // -------------------------------------------------------------------------
     // Helpers
@@ -216,9 +153,5 @@ public class DisjointKeyBenchmark {
         }
     }
 
-    private void rawMap_batch(ThreadState ts, Blackhole bh) {
-        bh.consume(rawMap.put(ts.key, 10));
-        bh.consume(rawMap.get(ts.key));
-        bh.consume(rawMap.containsKey(ts.key));
-    }
+
 }

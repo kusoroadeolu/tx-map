@@ -113,9 +113,10 @@ public class CopyOnWriteTransactionalMap<K, V> implements TransactionalMap<K, V>
             do {
                 prev = txMap.map.get();
                 underlyingMap = new HashMap<>(prev);
-                txs.forEach(c -> c.commitHandler.validate());
+                txs.forEach(ChildMapTransaction::tryValidate);
             }while (hasWrite && !txMap.map.compareAndSet(prev, new ConcurrentHashMap<>(underlyingMap)));
 
+            txs.forEach(c -> c.commitHandler.validate());
             txs.forEach(ChildMapTransaction::commit);
             txs.clear();
             underlyingMap.clear();
@@ -180,6 +181,30 @@ public class CopyOnWriteTransactionalMap<K, V> implements TransactionalMap<K, V>
             abortHandler.abort();
         }
 
+        public void tryValidate(){
+            var map = parent.underlyingMap;
+            switch (operation){
+                case Operation.ModifyOperation<?> op -> {
+                    var unwrapped = key.unwrap();
+                    Option<V> prev;
+                    if (op.type() == PUT) prev = Option.ofNullable(map.put(unwrapped, (V) op.element()));
+                    else prev = Option.ofNullable(map.remove(unwrapped));
+                    value = prev;
+                }
+
+                case Operation.SizeOperation _-> size = map.size();
+                case Operation.GetOperation _-> {
+                    var unwrapped = key.unwrap();
+                    value = Option.ofNullable(map.get(unwrapped));
+                }
+
+                case Operation.ContainsKeyOperation _-> {
+                    var unwrapped = key.unwrap();
+                    contains = map.containsKey(unwrapped);
+                }
+            }
+        }
+
         @Override
         public Option<Transaction> parent() {
             return Option.some(parent);
@@ -220,30 +245,8 @@ public class CopyOnWriteTransactionalMap<K, V> implements TransactionalMap<K, V>
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public void validate() {
             cmtx.state = VALIDATED;
-            var map = cmtx.parent.underlyingMap;
-            switch (cmtx.operation){
-                case Operation.ModifyOperation<?> op -> {
-                    var key = cmtx.key.unwrap();
-                    Option<V> prev;
-                    if (op.type() == PUT) prev = Option.ofNullable(map.put(key, (V) op.element()));
-                    else prev = Option.ofNullable(map.remove(key));
-                    cmtx.value = prev;
-                }
-
-                case Operation.SizeOperation _-> cmtx.size = map.size();
-                case Operation.GetOperation _-> {
-                    var key = cmtx.key.unwrap();
-                    cmtx.value = Option.ofNullable(map.get(key));
-                }
-
-                case Operation.ContainsKeyOperation _-> {
-                    var key = cmtx.key.unwrap();
-                    cmtx.contains = map.containsKey(key);
-                }
-            }
         }
     }
 }

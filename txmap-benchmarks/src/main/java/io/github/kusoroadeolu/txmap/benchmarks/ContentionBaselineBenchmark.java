@@ -1,38 +1,23 @@
 package io.github.kusoroadeolu.txmap.benchmarks;
 
-import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Contended key throughput benchmark — multiple threads, small shared key pool.
- *
- * Goal: measure throughput when conflicts are frequent.
- * All threads compete over a fixed pool of 4 keys so collisions are inevitable.
- *
- * Three contention profiles:
- *  - Read heavy  (90% get, 10% put)
- *  - Balanced    (50% get, 50% put)
- *  - Write heavy (10% get, 90% put)
- *
- * What to look for:
- *  - How throughput degrades as thread count and write ratio increase
- *  - Whether write-heavy + high threads causes throughput to collapse
- */
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(2)
-public class ContentionBenchmark {
-
+public class ContentionBaselineBenchmark {
     // Small fixed key pool — all threads compete over these
     private static final String[] KEYS = {"key-0", "key-1", "key-2", "key-3"};
 
-    private TransactionalMap<String, Integer> txMap;
+    private ConcurrentMap<String, Integer> map;
 
     // -------------------------------------------------------------------------
     // Abort tracking via AuxCounters
@@ -54,12 +39,9 @@ public class ContentionBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        txMap = TransactionalMap.createPessimistic();
+        map = new ConcurrentHashMap<>();
         // Pre-populate all keys so removes and gets have something to work with
-        try (var tx = txMap.beginTx()) {
-            for (String key : KEYS) tx.put(key, 0);
-            tx.commit();
-        }
+        for (String key : KEYS) map.put(key, 0);
     }
 
     // -------------------------------------------------------------------------
@@ -146,12 +128,6 @@ public class ContentionBenchmark {
         writeHeavy(ts, bh);
     }
 
-
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
     private void readHeavy(ThreadState ts, Blackhole bh) {
         boolean isWrite = (ts.opIndex++ % 10) == 0; // 1 in 10 ops is a write
         doOp(ts.nextKey(), isWrite, bh);
@@ -167,22 +143,15 @@ public class ContentionBenchmark {
         doOp(ts.nextKey(), isWrite, bh);
     }
 
-    //Include size in both to measure the overhead of size ops in pessimistic, though this should have minimal effect for CoW and Snapshots
     private void doOp(String key, boolean isWrite, Blackhole bh) {
-        try (var tx = txMap.beginTx()) {
-            if (isWrite) {
-                var future = tx.put(key, 42);
-                var future2 = tx.size();
-                tx.commit();
-                bh.consume(future.get());
-                bh.consume(future2.get());
-            } else {
-                var future = tx.get(key);
-                var future2 = tx.size();
-                tx.commit();
-                bh.consume(future.get());
-                bh.consume(future2.get());
-            }
+        Integer var1;
+        var var2 = map.size();
+        if (isWrite) {
+            var1 = map.put(key, 42);
+        } else {
+            var1 = map.get(key);
         }
+        bh.consume(var1);
+        bh.consume(var2);
     }
 }
