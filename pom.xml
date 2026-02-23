@@ -10,8 +10,8 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>txcoll-core</module>
-        <module>txcoll-benchmarks</module>
+        <module>txmap-core</module>
+        <module>txmap-benchmarks</module>
     </modules>
 
     <dependencies>

@@ -39,5 +39,5 @@ build/
 ### Mac OS ###
 .DS_Store
 target
-txcoll-benchmarks/target
-txcoll-core/target
+txmap-benchmarks/target
+txmap-core/target
