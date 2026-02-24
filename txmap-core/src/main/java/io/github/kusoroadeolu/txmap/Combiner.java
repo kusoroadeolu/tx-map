@@ -14,9 +14,9 @@ public class Combiner<E> {
     }
 
     static class StatefulAction<E, R>{
-       Action<E, R> action;
+       volatile Action<E, R> action;
        volatile R result;
-       boolean isApplied;
+       volatile boolean isApplied;
 
         private static final int ACTIVE = 1;
         private static final int INACTIVE = 0;
@@ -28,8 +28,8 @@ public class Combiner<E> {
 
 
        void setAction(Action<E, R> action){
-           this.action = action;
            isApplied = false;
+           this.action = action;
        }
 
         void apply(E e){
@@ -57,14 +57,13 @@ public class Combiner<E> {
     }
 
     static class Node<E, R> {
-
-        private final ThreadLocal<StatefulAction<E, R>> local;
+        private final StatefulAction<E, R> statefulAction;
         private int count;
 
         private volatile Node<E, R> tail; //The node below this node
 
-        Node(ThreadLocal<StatefulAction<E, R>> local){
-            this.local = local;
+        Node(){
+            this.statefulAction = new StatefulAction<>();
         }
 
         void setCount(int count){
@@ -78,19 +77,19 @@ public class Combiner<E> {
     }
 
 
-    private final ThreadLocal<StatefulAction<E, Object>> local;
+    private final ThreadLocal<Node<E, ?>> local;
     private final static int SPIN_COUNT = 256;
     private final AtomicReference<Node<E, ?>> head;
     private final E e;
     private final ReentrantLock lock;
-    private final static Node<List<?>, ?> DUMMY = new Node<>(null); //This marks the end of the "queue"
+    private final static Node<List<?>, ?> DUMMY = new Node<>(); //This marks the end of the "queue"
     private int count;
     private final int threshold;
 
     @SuppressWarnings("unchecked")
     public Combiner(E e) {
-        this.local = ThreadLocal.withInitial(StatefulAction::new);
-        this.head = new AtomicReference<>((Node<E, ?>) DUMMY);
+        this.local = ThreadLocal.withInitial(Node::new);
+        this.head = new AtomicReference<>((Node<E, Object>) DUMMY);
         this.lock = new ReentrantLock();
         this.e = e;
         this.threshold = 100;
@@ -98,21 +97,21 @@ public class Combiner<E> {
 
 
     @SuppressWarnings("unchecked")
-    public <R>R run(Action<E, R> action) {
-        var stateful = local.get();
+    public <R>R combine(Action<E, R> action) {
+        Node<E, R> node = (Node<E, R>) local.get();
+        var stateful = node.statefulAction;
         setAction(action);
 
         if (stateful.isInactive()){
-            Node<E, Object> node = new Node<>(local);
             Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node);
-            node.setTail((Node<E, Object>) prevHead);
+            node.setTail(prevHead);
         }
 
         while (true){
             if (lock.tryLock()){
                 try {
                     scanCombineApply();
-                    if (stateful.isApplied) return (R) stateful.result;
+                    if (stateful.isApplied) return stateful.result;
                 }finally {
                     lock.unlock();
                 }
@@ -120,17 +119,18 @@ public class Combiner<E> {
 
             int spins = 0;
             while (++spins < SPIN_COUNT) {
-                if (stateful.isApplied) return (R) stateful.result;
-                Thread.yield();
+                Thread.onSpinWait();
             }
+
+            if (stateful.isApplied) return stateful.result;
         }
     }
 
 
     @SuppressWarnings("unchecked")
     void setAction(Action<E, ?> action) {
-        var stateful = local.get();
-        stateful.setAction((Action<E, Object>) action);
+        Node<E, Object> node = (Node<E, Object>) local.get();
+        node.statefulAction.setAction((Action<E, Object>) action);
     }
 
     @SuppressWarnings("unchecked")
@@ -140,7 +140,7 @@ public class Combiner<E> {
 
         while (!node.equals(DUMMY)){
             this.tryApply(node);
-            while (node.tail == null) Thread.onSpinWait(); //This spin should be relatively short, we're using this to bridge the gap from when the node was set as the head to when we set its tailne
+            while (node.tail == null) Thread.onSpinWait(); //This spin should be relatively short, we're using this to bridge the gap from when the node was set as the head to when we set its tail
             node = node.tail;
         }
 
@@ -155,7 +155,7 @@ public class Combiner<E> {
         var current = seenHead.tail;
         StatefulAction<E, ?> statefulAction;
         while (!current.equals(DUMMY)){
-            statefulAction = current.local.get();
+            statefulAction = current.statefulAction;
             if ((count - threshold) >= current.count && statefulAction.isApplied){ //Ensure the user
                 statefulAction.setInactive();
                 head.setTail(current.tail);
@@ -170,11 +170,9 @@ public class Combiner<E> {
 
 
     void tryApply(Node<E, Object> node){
-        var statefulAction =  node.local.get();
-        if (statefulAction == null) return;
-
-        if (statefulAction.canApply()) {
-            statefulAction.apply(this.e);
+        var action =  node.statefulAction;
+        if (action != null && action.canApply()) {
+            action.apply(this.e);
             node.setCount(++count);
         }
     }

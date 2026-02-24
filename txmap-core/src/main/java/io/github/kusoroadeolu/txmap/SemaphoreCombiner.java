@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 * So this combiner
 *
 * */
-public class Combiner2<E> {
+public class SemaphoreCombiner<E> {
     @FunctionalInterface
     public interface Action<E, R>{
         R apply(E e);
@@ -18,13 +18,8 @@ public class Combiner2<E> {
 
     static class StatefulAction<E, R>{
         Action<E, R> action;
-        volatile R result;
-        volatile boolean isApplied;
-
-        void setAction(Action<E, R> action){
-            this.action = action;
-            isApplied = false;
-        }
+        R result;
+        boolean isApplied;
 
         void apply(E e){
             if (canApply()) this.result = this.action.apply(e);
@@ -50,8 +45,7 @@ public class Combiner2<E> {
 
 
         public Node() {
-            this.stateful = new StatefulAction<>();
-            this.status = new AtomicInteger(NOT_COMBINER);
+            this(NOT_COMBINER);
         }
 
         public Node(int isCombiner) {
@@ -73,26 +67,42 @@ public class Combiner2<E> {
     private final E e;
     private final int threshold;
 
-    public Combiner2(E e) {
+    /*
+    * Node(Tail)
+    * T1
+    * Node(Combiner) -> Thread 1 Node (Not combiner)
+    *
+    * /T2
+    * Thread 1 Node -> Thread 2 Node
+    * Node(Combiner) -> Thread 1 Node (Not combiner) -> Thread 2 Node (Not combiner)
+    *
+    * Combiner ran, Node, Thread 1 Node and Thread 2 Node
+    *
+    * /T1
+    * Thread 2 Node -> Node
+    * */
+    public SemaphoreCombiner(E e) {
         this.local = ThreadLocal.withInitial(Node::new);
         this.head = new AtomicReference<>(new Node<>(Node.IS_COMBINER));
         this.e = e;
         this.threshold = 100;
     }
 
+    private AtomicInteger tAccCount = new AtomicInteger(0); //To test how many can access this
+
 
     @SuppressWarnings("unchecked")
-    public <R>R run(Action<E, R> action) {
+    public <R>R combine(Action<E, R> action) {
         Node<E, R> newTail = (Node<E, R>) local.get();
         newTail.stateful.isApplied = false;
-        newTail.status.set(Node.NOT_COMBINER);  //Is applied will become visible immediately after newHead.status because of it's a volatile set
+        newTail.status.lazySet(Node.NOT_COMBINER);
 
 
-        Node<E, R> curNode = (Node<E, R>) head.getAndSet((Node<E, Object>) newTail);
+        var curNode = (Node<E, R>) head.getAndSet((Node<E, Object>) newTail);
         local.set(curNode);
 
-        // A brief window where, newHead can't reach us
-        curNode.stateful.setAction(action);
+        // A brief window where, we can't be reached by a former tail
+        curNode.stateful.action = action;
         curNode.setNext(newTail);
 
         var stateful = curNode.stateful;
@@ -100,25 +110,26 @@ public class Combiner2<E> {
         while (curNode.status.get() == Node.NOT_COMBINER){
             int spins = 0;
             while (++spins < SPIN_COUNT) {
-                Thread.yield();
+                Thread.onSpinWait();
             }
         }
 
         if (stateful.isApplied) return stateful.result;
 
-
+        //Now we're the combiner
         Node<E, R> node = curNode;
         Node<E, R> next;
 
         for (int i = 0; i < threshold && (next = node.next) != null; ++i, node = next){
             node.stateful.apply(e);
-            node.stateful.setAction(null);
-            node.next = null;
-            node.status.set(Node.IS_COMBINER);
+            node.stateful.isApplied = true;
+
+            node.stateful.action = null;
+            node.next = null; //Break the link, volatile write immediately makes is applied and action visibile
+            node.status.lazySet(Node.IS_COMBINER);
         }
 
-        node.status.lazySet(Node.IS_COMBINER);
-
+        node.status.set(Node.IS_COMBINER);
         return stateful.result;
     }
 
