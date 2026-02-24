@@ -10,6 +10,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
 
+import static io.github.kusoroadeolu.txmap.map.DefaultTransactionalMap.LockType.*;
+
 //Happens before edges
 /*
 * A abort of transactions in the set by a transaction happens before the acquisition of the write lock by the transaction that aborted
@@ -39,9 +41,7 @@ class GuardedTxSet {
 
     public void uniqueAcquireReadLock(Set<LockWrapper> heldLocks, Operation op){
         Option.ofNullable(heldLocks)
-                    .map(slw ->
-                            BI_FUNCTION.apply(slw, new LockWrapper(DefaultTransactionalMap.LockType.READ, op, rLock))
-                    );
+                    .map(slw -> BI_FUNCTION.apply(slw, new LockWrapper(READ, op, rLock)));
     }
 
 

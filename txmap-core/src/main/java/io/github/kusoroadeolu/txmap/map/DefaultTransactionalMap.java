@@ -124,7 +124,9 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
          void acquireReadLock(Operation op, Option<K> key){
             switch (key){
                 case Some<K> s -> txMap.keyToLockers.getOrCreate(s.unwrap(), op)
-                        .ifSome(txSet -> txSet.uniqueAcquireReadLock(heldLocks, op));
+                        .ifSome(txSet ->
+                            txSet.uniqueAcquireReadLock(heldLocks, op)
+                        );
 
                 case None<K> _ -> txMap.sizeLockers.uniqueAcquireReadLock(heldLocks, op);
             };
@@ -245,7 +247,6 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
 
 
     record ChildTxCommitHandler<K, V>(ChildMapTransaction<K, V> cmtx) implements CommitHandler {
-
         @SuppressWarnings("unchecked")
         public void commit() {
             var op = cmtx.operation;
@@ -330,7 +331,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
             //Take the get lock first
             var getSet = txMap.keyToLockers.getOrCreate(key, GET);
             this.releaseReadLockIfHeld(getSet, GET);
-            this.holdLockForReadType(getSet, heldLocks, GET);
+            this.holdWriteLockForReadType(getSet, heldLocks, GET);
 
             //Ensure we only lock once, since a tx is basically only on a single thread, we cant really get deadlocks, but we want to ensure we release all locks
             //Then we want to grab to writeLocks for the contains operation, we want to check if the underlying map contains the key, so we can grab the size lock as well
@@ -344,18 +345,20 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
              switch (op.type()){
                  case PUT -> {
                     if (!containsKey){
-                        this.releaseReadLockIfHeld(Option.some(sizeSet), op);
-                        this.holdLockForReadType(getSet, heldLocks, CONTAINS);
-                        this.holdLockForReadType(getSet, heldLocks, SIZE);
+                        var optionSizeSet = Option.some(sizeSet);
+                        this.releaseReadLockIfHeld(optionSizeSet , SIZE);
+                        this.holdWriteLockForReadType(containsSet, heldLocks, CONTAINS);
+                        this.holdWriteLockForReadType(optionSizeSet, heldLocks, SIZE);
 
                     }
                 }
 
                  case REMOVE -> {
                     if (containsKey){
-                        this.releaseReadLockIfHeld(Option.some(sizeSet), op);
-                        this.holdLockForReadType(getSet, heldLocks, CONTAINS);
-                        this.holdLockForReadType(getSet, heldLocks, SIZE);
+                        var optionSizeSet = Option.some(sizeSet);
+                        this.releaseReadLockIfHeld(optionSizeSet, SIZE);
+                        this.holdWriteLockForReadType(containsSet, heldLocks, CONTAINS);
+                        this.holdWriteLockForReadType(optionSizeSet, heldLocks, SIZE);
 
                     }
                 }
@@ -364,7 +367,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
             }
         }
 
-        void holdLockForReadType(Option<GuardedTxSet> txSet, Set<LockWrapper> set, Operation op){
+        void holdWriteLockForReadType(Option<GuardedTxSet> txSet, Set<LockWrapper> set, Operation op){
             txSet.map(GuardedTxSet::writeLock)
                     .map(lock -> new LockWrapper(LockType.WRITE, op, lock))
                     .filter(set::add)
@@ -373,8 +376,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
 
         void releaseReadLockIfHeld(Option<GuardedTxSet> txSet, Operation op){
             txSet.map(_ -> {
-                        this.findExistingReadLock(op)
-                                .ifPresent(lw -> {
+                        this.findExistingReadLock(op).ifPresent(lw -> {
                             lw.unlock();
                             cmtx.parent.heldLocks.remove(lw);
                         });
@@ -408,7 +410,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
             }
         }
 
-        record LockWrapper(LockType type, Operation op ,Lock iLock){
+        record LockWrapper(LockType type, Operation op ,Lock iLock){ // I want this to be lock agnostic
 
             @Override
             public boolean equals(Object object) {
@@ -420,9 +422,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
 
             @Override
             public int hashCode() {
-                int result = type.hashCode();
-                result = 31 * result + op.hashCode();
-                return result;
+                return Objects.hash(type, op);
             }
 
             public void lock(){
@@ -435,7 +435,7 @@ public class DefaultTransactionalMap<K, V> implements TransactionalMap<K, V> {
 
         }
 
-        public enum LockType{
+        public enum LockType{ //If the lock is a read or write lock
             READ, WRITE
         }
     }
