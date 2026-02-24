@@ -1,19 +1,25 @@
 package io.github.kusoroadeolu.txmap.map;
 
-import org.junit.jupiter.api.Assertions;
+import io.github.kusoroadeolu.txmap.handlers.Combiner2;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.ArrayList;
+import java.util.List;
 
 public class QuickTest {
     @Test
-    public void testDefaultLockWrapper(){
+    public void testDefaultLockWrapper() throws InterruptedException {
+        Combiner2<List<Integer>> combiner = new Combiner2<>(new ArrayList<>());
+        for (int i = 0; i < 170; ++i){
+            int j = i;
+            Thread.startVirtualThread(() -> combiner.run(list -> list.add(j)));
+        }
 
-        Lock lock = new ReentrantLock();
-        DefaultTransactionalMap.LockWrapper wrapper = new DefaultTransactionalMap.LockWrapper(DefaultTransactionalMap.LockType.READ, Operation.SizeOperation.SIZE, lock);
-        DefaultTransactionalMap.LockWrapper wrapper2 = new DefaultTransactionalMap.LockWrapper(DefaultTransactionalMap.LockType.READ, Operation.SizeOperation.SIZE, null);
-        Assertions.assertEquals(wrapper2, wrapper);
+        Thread.sleep(1000);
+        IO.println(combiner.e().size());
+
+
+
 
     }
 }
