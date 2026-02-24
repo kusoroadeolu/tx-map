@@ -1,10 +1,11 @@
 package io.github.kusoroadeolu.txmap;
 
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static io.github.kusoroadeolu.txmap.Combiner.StatefulAction.ACTIVE;
 
 public class Combiner<E> {
 
@@ -15,11 +16,11 @@ public class Combiner<E> {
 
     static class StatefulAction<E, R>{
        volatile Action<E, R> action;
-       volatile R result;
-       volatile boolean isApplied;
+       R result;
 
-        private static final int ACTIVE = 1;
-        private static final int INACTIVE = 0;
+        static final int WAITING = 2;
+        static final int ACTIVE = 1;
+        static final int INACTIVE = 0;
         private final AtomicInteger status;
 
         public StatefulAction() {
@@ -27,18 +28,18 @@ public class Combiner<E> {
         }
 
 
-       void setAction(Action<E, R> action){
-           isApplied = false;
+       void setActionAndNullResult(Action<E, R> action){
+           this.result = null;
            this.action = action;
        }
 
-        void apply(E e){
-           if (canApply()) this.result = this.action.apply(e);
-           this.isApplied = true;
+        void applyAndNullAction(E e){
+            this.result = this.action.apply(e);
+            this.action = null; //Null out the action to notify the caller
         }
 
         boolean canApply(){
-           return !this.isApplied;
+           return action != null;
         }
 
         R result(){
@@ -46,12 +47,20 @@ public class Combiner<E> {
         }
 
 
-        void setInactive(){
-            status.compareAndSet(ACTIVE, INACTIVE);
+        boolean setInactive(){
+           return status.compareAndSet(ACTIVE, INACTIVE);
         }
 
         boolean isInactive(){
-            return status.get() == INACTIVE;
+            return !status.compareAndSet(ACTIVE, WAITING);
+        }
+
+        void setActive(){
+            status.lazySet(ACTIVE);
+        }
+
+        void setWaiting(){
+            status.lazySet(WAITING);
         }
 
     }
@@ -82,7 +91,7 @@ public class Combiner<E> {
     private final AtomicReference<Node<E, ?>> head;
     private final E e;
     private final ReentrantLock lock;
-    private final static Node<List<?>, ?> DUMMY = new Node<>(); //This marks the end of the "queue"
+    private final static Node<?, ?> DUMMY = new Node<>(); //This marks the end of the "queue"
     private int count;
     private final int threshold;
 
@@ -92,59 +101,66 @@ public class Combiner<E> {
         this.head = new AtomicReference<>((Node<E, Object>) DUMMY);
         this.lock = new ReentrantLock();
         this.e = e;
-        this.threshold = 100;
+        this.threshold = 5;
     }
-
 
     @SuppressWarnings("unchecked")
     public <R>R combine(Action<E, R> action) {
         Node<E, R> node = (Node<E, R>) local.get();
         var stateful = node.statefulAction;
-        setAction(action);
 
         if (stateful.isInactive()){
+            node.statefulAction.status.set(ACTIVE);
             Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node);
             node.setTail(prevHead);
         }
 
-        while (true){
+        stateful.setActionAndNullResult(action);
+
+        int spins;
+        while (stateful.action != null){
+
+            spins = 0;
             if (lock.tryLock()){
                 try {
                     scanCombineApply();
-                    if (stateful.isApplied) return stateful.result;
+                    if (stateful.action == null) {
+                        return stateful.result;
+                    }
                 }finally {
                     lock.unlock();
                 }
             }
 
-            int spins = 0;
+
             while (++spins < SPIN_COUNT) {
                 Thread.onSpinWait();
             }
 
-            if (stateful.isApplied) return stateful.result;
+            if (stateful.isInactive()){
+                node.statefulAction.status.set(ACTIVE);
+                Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node);
+                node.setTail(prevHead);
+            }
         }
-    }
 
-
-    @SuppressWarnings("unchecked")
-    void setAction(Action<E, ?> action) {
-        Node<E, Object> node = (Node<E, Object>) local.get();
-        node.statefulAction.setAction((Action<E, Object>) action);
+        return stateful.result;
     }
 
     @SuppressWarnings("unchecked")
     void scanCombineApply(){
         Node<E, Object> seenHead = (Node<E, Object>) this.head.get();
         Node<E, Object> node = seenHead;
+        ++count;
 
         while (!node.equals(DUMMY)){
-            this.tryApply(node);
+            this.apply(node);
             while (node.tail == null) Thread.onSpinWait(); //This spin should be relatively short, we're using this to bridge the gap from when the node was set as the head to when we set its tail
             node = node.tail;
         }
 
-        if (count - threshold > 1){
+
+        if (count >= threshold){
             dequeFromHead(seenHead);
         }
 
@@ -154,13 +170,16 @@ public class Combiner<E> {
         var head = seenHead;
         var current = seenHead.tail;
         StatefulAction<E, ?> statefulAction;
-        while (!current.equals(DUMMY)){
+        while (current != null && !current.equals(DUMMY)){
             statefulAction = current.statefulAction;
-            if ((count - threshold) >= current.count && statefulAction.isApplied){ //Ensure the user
+            if (count >= current.count){ //Ensure this action is unused before clearing it
                 statefulAction.setInactive();
                 head.setTail(current.tail);
                 current.tail = null;
-                break;
+
+                head = head.tail; //Current's old tail
+                current = head.tail;
+                continue;
             }
 
             head = current;
@@ -169,15 +188,16 @@ public class Combiner<E> {
     }
 
 
-    void tryApply(Node<E, Object> node){
-        var action =  node.statefulAction;
-        if (action != null && action.canApply()) {
-            action.apply(this.e);
-            node.setCount(++count);
+    void apply(Node<E, Object> node){
+        var statefulAction =  node.statefulAction;
+        if (statefulAction.canApply()) {
+            statefulAction.applyAndNullAction(e);
+            node.setCount(count);
         }
     }
 
     public E e(){
         return e;
     }
+
 }

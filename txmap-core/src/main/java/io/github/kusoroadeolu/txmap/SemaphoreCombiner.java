@@ -88,8 +88,6 @@ public class SemaphoreCombiner<E> {
         this.threshold = 100;
     }
 
-    private AtomicInteger tAccCount = new AtomicInteger(0); //To test how many can access this
-
 
     @SuppressWarnings("unchecked")
     public <R>R combine(Action<E, R> action) {

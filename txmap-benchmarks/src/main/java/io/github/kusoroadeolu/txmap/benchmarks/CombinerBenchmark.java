@@ -4,10 +4,11 @@ import io.github.kusoroadeolu.txmap.Combiner;
 import io.github.kusoroadeolu.txmap.SemaphoreCombiner;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -19,8 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Fork(2)
 public class CombinerBenchmark {
 
-    private Combiner<List<Integer>> combiner;
-    private SemaphoreCombiner<List<Integer>> semCombiner;
+    private Combiner<AtomicInteger> combiner;
+    private SemaphoreCombiner<AtomicInteger> semCombiner;
     final AtomicInteger num = new AtomicInteger(-1);
 
     @State(Scope.Thread)
@@ -35,63 +36,61 @@ public class CombinerBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        combiner = new Combiner<>(new ArrayList<>());
-        semCombiner = new SemaphoreCombiner<>(new ArrayList<>());
+        combiner = new Combiner<>(new AtomicInteger());
+        semCombiner = new SemaphoreCombiner<>(new AtomicInteger());
     }
 
-    @Benchmark
-    @Threads(1)
-    public void combiner_1thread(Blackhole bh, ThreadState ts) {
-        bh.consume(combiner.combine(list -> list.add(ts.value)));
-    }
+//    @Benchmark
+//    @Threads(1)
+//    public void combiner_1thread(Blackhole bh, ThreadState ts) {
+//        bh.consume(combiner.combine(AtomicInteger::incrementAndGet));
+//    }
 
     @Benchmark
     @Threads(2)
     public void combiner_2threads( Blackhole bh, ThreadState ts) {
-        bh.consume(combiner.combine(list -> list.add(ts.value)));
+        bh.consume(combiner.combine(AtomicInteger::incrementAndGet));
 
     }
 
     @Benchmark
     @Threads(4)
     public void combiner_4threads( Blackhole bh, ThreadState ts) {
-        bh.consume(combiner.combine(list -> list.add(ts.value)));
+        bh.consume(combiner.combine(AtomicInteger::incrementAndGet));
 
     }
 
     @Benchmark
     @Threads(8)
     public void combiner_8threads(Blackhole bh, ThreadState ts) {
-        bh.consume(combiner.combine(list -> list.add(ts.value)));
+        bh.consume(combiner.combine(AtomicInteger::incrementAndGet));
     }
 
 
     @Benchmark
     @Threads(1)
     public void s_combiner_1thread(Blackhole bh, ThreadState ts) {
-        bh.consume(semCombiner.combine(list -> list.add(ts.value)));
+        bh.consume(semCombiner.combine(AtomicInteger::incrementAndGet));
     }
 
     @Benchmark
     @Threads(2)
     public void s_combiner_2threads( Blackhole bh, ThreadState ts) {
-        bh.consume(semCombiner.combine(list -> list.add(ts.value)));
+        bh.consume(semCombiner.combine(AtomicInteger::incrementAndGet));
 
     }
 
     @Benchmark
     @Threads(4)
     public void s_combiner_4threads( Blackhole bh, ThreadState ts) {
-        bh.consume(semCombiner.combine(list -> list.add(ts.value)));
-
+        bh.consume(semCombiner.combine(AtomicInteger::incrementAndGet));
     }
 
     @Benchmark
     @Threads(8)
     public void s_combiner_8threads(Blackhole bh, ThreadState ts) {
-        bh.consume(semCombiner.combine(list -> list.add(ts.value)));
+        bh.consume(semCombiner.combine(AtomicInteger::incrementAndGet));
     }
-
 
 
 }
