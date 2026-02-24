@@ -12,11 +12,11 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TransactionalMapTest {
-    private DefaultTransactionalMap<String, Integer> txMap;
+    private OptimisticTransactionalMap<String, Integer> txMap;
 
     @BeforeEach
     void setUp() {
-        txMap = new DefaultTransactionalMap<>();
+        txMap = new OptimisticTransactionalMap<>();
     }
 
     // -------------------------------------------------------------------------

@@ -2,7 +2,7 @@ package io.github.kusoroadeolu.txmap.map;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.Transaction;
-import io.github.kusoroadeolu.txmap.map.DefaultTransactionalMap.LockWrapper;
+import io.github.kusoroadeolu.txmap.map.OptimisticTransactionalMap.LockWrapper;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +40,7 @@ class GuardedTxSet {
     public void uniqueAcquireReadLock(Set<LockWrapper> heldLocks, Operation op){
         Option.ofNullable(heldLocks)
                     .map(slw ->
-                            BI_FUNCTION.apply(slw, new LockWrapper(DefaultTransactionalMap.LockType.READ, op, rLock))
+                            BI_FUNCTION.apply(slw, new LockWrapper(OptimisticTransactionalMap.LockType.READ, op, rLock))
                     );
     }
 
