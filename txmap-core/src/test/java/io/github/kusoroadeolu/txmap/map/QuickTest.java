@@ -1,6 +1,6 @@
 package io.github.kusoroadeolu.txmap.map;
 
-import io.github.kusoroadeolu.txmap.handlers.Combiner2;
+import io.github.kusoroadeolu.txmap.Combiner2;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

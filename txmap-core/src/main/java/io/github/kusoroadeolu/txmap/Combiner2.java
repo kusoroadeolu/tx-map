@@ -1,4 +1,4 @@
-package io.github.kusoroadeolu.txmap.handlers;
+package io.github.kusoroadeolu.txmap;
 
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -85,7 +85,7 @@ public class Combiner2<E> {
     public <R>R run(Action<E, R> action) {
         Node<E, R> newTail = (Node<E, R>) local.get();
         newTail.stateful.isApplied = false;
-        newTail.status.set(0);  //Is applied will become visible immediately after newHead.status because of it's a volatile set
+        newTail.status.set(Node.NOT_COMBINER);  //Is applied will become visible immediately after newHead.status because of it's a volatile set
 
 
         Node<E, R> curNode = (Node<E, R>) head.getAndSet((Node<E, Object>) newTail);
@@ -117,7 +117,7 @@ public class Combiner2<E> {
             node.status.set(Node.IS_COMBINER);
         }
 
-        node.status.lazySet(1);
+        node.status.lazySet(Node.IS_COMBINER);
 
         return stateful.result;
     }
