@@ -366,17 +366,14 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
                     if (latch.isHeld(cmtx)) {
                         try {
                            latch.cLatch().await();
+                            set.incrementReaderCount();
+                            cmtx.setIncrementedCount();
+                            cmtx.state = TransactionState.VALIDATED;
                         } catch (InterruptedException _) {
                             Thread.currentThread().interrupt();
                             cmtx.state = TransactionState.ABORTED;
                             cmtx.parent.hasAborted = true; //TODO Rather than aborting here I could instead just, reacquire the latch, then wait using a spin loop, probably worse but worth thinking about
                         }
-                    }
-
-                    if (!cmtx.isAborted()){
-                        set.incrementReaderCount();
-                        cmtx.setIncrementedCount();
-                        cmtx.state = TransactionState.VALIDATED;
                     }
 
                 }

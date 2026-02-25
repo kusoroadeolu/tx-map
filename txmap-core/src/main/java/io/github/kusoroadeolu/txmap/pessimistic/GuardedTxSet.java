@@ -81,7 +81,7 @@ class GuardedTxSet {
     }
 
     public void decrementReaderCount(){
-       int count = readerCount.decrementAndGet();
+        readerCount.decrementAndGet();
     }
 
 

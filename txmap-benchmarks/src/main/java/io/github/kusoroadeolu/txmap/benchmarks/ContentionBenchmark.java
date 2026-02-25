@@ -54,7 +54,7 @@ public class ContentionBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        txMap = TransactionalMap.createPessimistic();
+        txMap = TransactionalMap.createSnapshot();
         // Pre-populate all keys so removes and gets have something to work with
         try (var tx = txMap.beginTx()) {
             for (String key : KEYS) tx.put(key, 0);
