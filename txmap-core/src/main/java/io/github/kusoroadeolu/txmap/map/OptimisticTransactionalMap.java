@@ -20,6 +20,7 @@ import static io.github.kusoroadeolu.txmap.map.Operation.DEFAULT_MODIFY_OP;
 import static io.github.kusoroadeolu.txmap.map.Operation.GetOperation.GET;
 import static io.github.kusoroadeolu.txmap.map.Operation.ModifyType.PUT;
 import static io.github.kusoroadeolu.txmap.map.Operation.SizeOperation.SIZE;
+import static io.github.kusoroadeolu.txmap.map.OptimisticTransactionalMap.LockType.WRITE;
 
 /*
  * Happens before guarantees
@@ -340,16 +341,20 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
             this.releaseReadLockIfHeld(containsSet, CONTAINS);
 
             //Now that we have the iLock for contains key , we can check the underlying map to see if we should obtain the size iLock too
+            boolean heldByThisTx = this.holdWriteLockForReadType(containsSet, heldLocks, CONTAINS); //Check if this transaction held this lock, otherwise a previous transaction couldve held this lock
             boolean containsKey = txMap.map.containsKey(key);
+
+
             var sizeSet = txMap.sizeLockers;
             switch (op.type()){
                 case PUT -> {
                     if (!containsKey){
                         var optionSizeSet = Option.some(sizeSet);
                         this.releaseReadLockIfHeld(optionSizeSet , SIZE);
-                        this.holdWriteLockForReadType(containsSet, heldLocks, CONTAINS);
                         this.holdWriteLockForReadType(optionSizeSet, heldLocks, SIZE);
 
+                    }else {
+                        if(heldByThisTx) this.findExistingWriteLock(CONTAINS).ifPresent(LockWrapper::unlock); //If "contains key is already present, then it will return true always, hence we dont need this lock,"
                     }
                 }
 
@@ -357,9 +362,10 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
                     if (containsKey){
                         var optionSizeSet = Option.some(sizeSet);
                         this.releaseReadLockIfHeld(optionSizeSet, SIZE);
-                        this.holdWriteLockForReadType(containsSet, heldLocks, CONTAINS);
                         this.holdWriteLockForReadType(optionSizeSet, heldLocks, SIZE);
 
+                    }else {
+                        if(heldByThisTx) this.findExistingWriteLock(CONTAINS).ifPresent(LockWrapper::unlock);
                     }
                 }
 
@@ -367,11 +373,17 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
             }
         }
 
-        void holdWriteLockForReadType(Option<GuardedTxSet> txSet, Set<LockWrapper> set, Operation op){
-            txSet.map(GuardedTxSet::writeLock)
+        boolean holdWriteLockForReadType(Option<GuardedTxSet> txSet, Set<LockWrapper> set, Operation op){
+            return txSet.map(GuardedTxSet::writeLock)
                     .map(lock -> new LockWrapper(LockType.WRITE, op, lock))
-                    .filter(set::add)
-                    .ifSome(LockWrapper::lock);
+                    .map(lw -> {
+                        if (set.add(lw)) {
+                            lw.lock();
+                            return true;
+                        }
+
+                        return false;
+                    }).unwrap();
         }
 
         void releaseReadLockIfHeld(Option<GuardedTxSet> txSet, Operation op){
@@ -386,6 +398,14 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
 
         Optional<LockWrapper> findExistingReadLock(Operation op){
             var glw = new LockWrapper(READ, op, null);
+            return cmtx.parent.heldLocks
+                    .stream()
+                    .filter(lw -> lw.equals(glw))
+                    .findFirst();
+        }
+
+        Optional<LockWrapper> findExistingWriteLock(Operation op){
+            var glw = new LockWrapper(WRITE, op, null);
             return cmtx.parent.heldLocks
                     .stream()
                     .filter(lw -> lw.equals(glw))
