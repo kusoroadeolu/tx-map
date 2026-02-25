@@ -15,8 +15,8 @@ public class Combiner<E> {
     }
 
     static class StatefulAction<E, R>{
-       volatile Action<E, R> action;
-       R result;
+        volatile Action<E, R> action;
+        R result;
 
         static final int WAITING = 2;
         static final int ACTIVE = 1;
@@ -28,10 +28,10 @@ public class Combiner<E> {
         }
 
 
-       void setActionAndNullResult(Action<E, R> action){
-           this.result = null;
-           this.action = action;
-       }
+        void setActionAndNullResult(Action<E, R> action){
+            this.result = null;
+            this.action = action;
+        }
 
         void applyAndNullAction(E e){
             this.result = this.action.apply(e);
@@ -39,7 +39,7 @@ public class Combiner<E> {
         }
 
         boolean canApply(){
-           return action != null;
+            return action != null;
         }
 
         R result(){
@@ -47,20 +47,16 @@ public class Combiner<E> {
         }
 
 
-        boolean setInactive(){
-           return status.compareAndSet(ACTIVE, INACTIVE);
+        void setInactive(){
+            status.set(INACTIVE);
         }
 
         boolean isInactive(){
-            return !status.compareAndSet(ACTIVE, WAITING);
+            return status.get() == INACTIVE;
         }
 
         void setActive(){
-            status.lazySet(ACTIVE);
-        }
-
-        void setWaiting(){
-            status.lazySet(WAITING);
+            this.status.lazySet(ACTIVE);
         }
 
     }
@@ -119,12 +115,12 @@ public class Combiner<E> {
 
         int spins;
         while (stateful.action != null){
-
             spins = 0;
             if (lock.tryLock()){
                 try {
                     scanCombineApply();
                     if (stateful.action == null) {
+
                         return stateful.result;
                     }
                 }finally {
@@ -137,6 +133,7 @@ public class Combiner<E> {
                 Thread.onSpinWait();
             }
 
+            //Ensure to always check in the loop, just to prevent a situation where we think we're still active but we're not
             if (stateful.isInactive()){
                 node.statefulAction.status.set(ACTIVE);
                 Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node);
@@ -155,7 +152,10 @@ public class Combiner<E> {
 
         while (!node.equals(DUMMY)){
             this.apply(node);
-            while (node.tail == null) Thread.onSpinWait(); //This spin should be relatively short, we're using this to bridge the gap from when the node was set as the head to when we set its tail
+            while (node.tail == null) {
+
+                Thread.onSpinWait(); //This spin should be relatively short, we're using this to bridge the gap from when the node was set as the head to when we set its tail
+            }
             node = node.tail;
         }
 
@@ -172,13 +172,12 @@ public class Combiner<E> {
         StatefulAction<E, ?> statefulAction;
         while (current != null && !current.equals(DUMMY)){
             statefulAction = current.statefulAction;
-            if (count >= current.count){ //Ensure this action is unused before clearing it
-                statefulAction.setInactive();
+            if ((count - current.count) >= threshold && statefulAction.action == null){
                 head.setTail(current.tail);
                 current.tail = null;
-
-                head = head.tail; //Current's old tail
                 current = head.tail;
+                statefulAction.setInactive(); //Ensure we set this as inactive after unlinking to prevent a situation in which this thread and the node owning threader overwrite their tail
+                //I.e the node owning thread, sees its inactive and, could try to set its tail to the current head , but the combiner overwrites it, now the node is unlinked forever while still being active, leading to issues
                 continue;
             }
 

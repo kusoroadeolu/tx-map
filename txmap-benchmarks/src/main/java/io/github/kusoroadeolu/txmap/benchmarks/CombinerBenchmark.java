@@ -40,11 +40,11 @@ public class CombinerBenchmark {
         semCombiner = new SemaphoreCombiner<>(new AtomicInteger());
     }
 
-//    @Benchmark
-//    @Threads(1)
-//    public void combiner_1thread(Blackhole bh, ThreadState ts) {
-//        bh.consume(combiner.combine(AtomicInteger::incrementAndGet));
-//    }
+    @Benchmark
+    @Threads(1)
+    public void combiner_1thread(Blackhole bh, ThreadState ts) {
+        bh.consume(combiner.combine(AtomicInteger::incrementAndGet));
+    }
 
     @Benchmark
     @Threads(2)
