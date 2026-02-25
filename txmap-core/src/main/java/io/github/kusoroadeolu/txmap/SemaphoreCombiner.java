@@ -10,11 +10,8 @@ import java.util.concurrent.atomic.AtomicReference;
 * So this combiner
 *
 * */
-public class SemaphoreCombiner<E> {
-    @FunctionalInterface
-    public interface Action<E, R>{
-        R apply(E e);
-    }
+public class SemaphoreCombiner<E> implements Combiner<E>{
+
 
     static class StatefulAction<E, R>{
         Action<E, R> action;
@@ -70,26 +67,30 @@ public class SemaphoreCombiner<E> {
     /*
     * Node(Tail)
     * T1
-    * Node(Combiner) -> Thread 1 Node (Not combiner)
+    * Node(UnboundCombiner) -> Thread 1 Node (Not combiner)
     *
     * /T2
     * Thread 1 Node -> Thread 2 Node
-    * Node(Combiner) -> Thread 1 Node (Not combiner) -> Thread 2 Node (Not combiner)
+    * Node(UnboundCombiner) -> Thread 1 Node (Not combiner) -> Thread 2 Node (Not combiner)
     *
-    * Combiner ran, Node, Thread 1 Node and Thread 2 Node
+    * UnboundCombiner ran, Node, Thread 1 Node and Thread 2 Node
     *
     * /T1
     * Thread 2 Node -> Node
     * */
     public SemaphoreCombiner(E e) {
+        this(e, 100);
+    }
+
+    public SemaphoreCombiner(E e, int threshold) {
         this.local = ThreadLocal.withInitial(Node::new);
         this.head = new AtomicReference<>(new Node<>(Node.IS_COMBINER));
         this.e = e;
-        this.threshold = 100;
+        this.threshold = threshold;
     }
 
-
     @SuppressWarnings("unchecked")
+    @Override
     public <R>R combine(Action<E, R> action) {
         Node<E, R> newTail = (Node<E, R>) local.get();
         newTail.stateful.isApplied = false;
@@ -132,7 +133,7 @@ public class SemaphoreCombiner<E> {
     }
 
 
-
+    @Override
     public E e(){
         return e;
     }

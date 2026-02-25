@@ -1,5 +1,8 @@
 //package io.github.kusoroadeolu.txmap.map;
 //
+//import io.github.kusoroadeolu.txmap.MapTransaction;
+//import io.github.kusoroadeolu.txmap.TransactionalMap;
+//
 //import java.util.ArrayList;
 //import java.util.Random;
 //import java.util.concurrent.*;
@@ -36,7 +39,7 @@
 //        System.out.printf("Threads: %d | Ops/thread: %d | Key space: %d | Tx timeout: %dms%n%n",
 //                NUM_THREADS, OPS_PER_THREAD, KEY_SPACE, TX_TIMEOUT_MS);
 //
-//        var txMap = new DefaultTransactionalMap<Integer, String>();
+//        var txMap = TransactionalMap.createFlatCombined();
 //        var executor = Executors.newFixedThreadPool(NUM_THREADS);
 //        var futures = new ArrayList<Future<?>>();
 //
@@ -85,7 +88,7 @@
 //        }
 //    }
 //
-//    static void runThread(DefaultTransactionalMap<Integer, String> txMap, int threadId) {
+//    static void runThread(MapTransaction<Integer, String> txMap, int threadId) {
 //        var rng = new Random(threadId * 31L);
 //        // Use a single-thread executor per transaction so we can apply a timeout to each tx
 //        var txExecutor = Executors.newSingleThreadExecutor();
