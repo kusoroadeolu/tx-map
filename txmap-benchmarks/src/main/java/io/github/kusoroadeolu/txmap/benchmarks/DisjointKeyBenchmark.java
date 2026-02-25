@@ -4,7 +4,6 @@ import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -35,7 +34,6 @@ public class DisjointKeyBenchmark {
     // -------------------------------------------------------------------------
 
     private TransactionalMap<String, Integer> txMap;
-    private ConcurrentHashMap<String, Integer> rawMap;
 
     // Assign each thread a unique index for key isolation
     private final AtomicInteger threadCounter = new AtomicInteger(0);
@@ -55,7 +53,6 @@ public class DisjointKeyBenchmark {
     @Setup(Level.Trial)
     public void setup() {
         txMap = TransactionalMap.create();
-        rawMap = new ConcurrentHashMap<>();
         threadCounter.set(0);
     }
 
