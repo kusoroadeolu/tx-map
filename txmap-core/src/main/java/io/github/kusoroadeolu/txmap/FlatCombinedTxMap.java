@@ -33,7 +33,7 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
         public CombinedMapTransaction(FlatCombinedTxMap<K, V> txMap) {
             this.actions = new ArrayList<>();
             this.underlying = txMap.map;
-            this.combiner = new SemaphoreCombiner<>(new BatchTxAction<>(actions));
+            this.combiner = new UnboundCombiner<>(new BatchTxAction<>(actions));
         }
 
         @Override

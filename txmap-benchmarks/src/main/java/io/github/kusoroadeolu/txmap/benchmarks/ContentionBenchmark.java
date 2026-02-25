@@ -106,33 +106,33 @@ public class ContentionBenchmark {
         readHeavy(ts, bh);
     }
 
-    // -------------------------------------------------------------------------
-    // Balanced — 50% get, 50% put
-    // -------------------------------------------------------------------------
-
-    @Benchmark
-    @Threads(1)
-    public void balanced_1thread(ThreadState ts, Blackhole bh) {
-        balanced(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(2)
-    public void balanced_2threads(ThreadState ts , Blackhole bh) {
-        balanced(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(4)
-    public void balanced_4threads(ThreadState ts, Blackhole bh) {
-        balanced(ts,bh);
-    }
-
-    @Benchmark
-    @Threads(8)
-    public void balanced_8threads(ThreadState ts, Blackhole bh) {
-        balanced(ts, bh);
-    }
+//    // -------------------------------------------------------------------------
+//    // Balanced — 50% get, 50% put
+//    // -------------------------------------------------------------------------
+//
+//    @Benchmark
+//    @Threads(1)
+//    public void balanced_1thread(ThreadState ts, Blackhole bh) {
+//        balanced(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(2)
+//    public void balanced_2threads(ThreadState ts , Blackhole bh) {
+//        balanced(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(4)
+//    public void balanced_4threads(ThreadState ts, Blackhole bh) {
+//        balanced(ts,bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(8)
+//    public void balanced_8threads(ThreadState ts, Blackhole bh) {
+//        balanced(ts, bh);
+//    }
 
     // -------------------------------------------------------------------------
     // Write heavy — 90% put, 10% get

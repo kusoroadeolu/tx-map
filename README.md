@@ -3,7 +3,7 @@ This transactional map provides both strong isolation and full atomicity guarant
 The main goal of this transactional map, is to integrate transactional and flat combining techniques into a map. Transactions in this map are lazy, meaning they aren't processed until commit time. This map provides two combiners to test with
 - **Unbound combiner:** This combiner allows an unfixed amount of threads to concurrently access it, however to prevent nodes from growing, a node cleanup is performed infrequently by the combiner after the combiner has been executed a certain amount of times. It is also lock based
 - **Semaphore combiner:** This combiner allows a fixed amount of threads to concurrently access it, to prevent nodes from growing, this combiner implements node reuse, however if this combiner is accessed by multiple threads greater than the fixed amount, the queue could grow exponentially large
-You can find the raw benchmarks for both combiners [here](txmap-benchmarks/combiner-bmh/combiner-bmh.json)
+You can find the standalone benchmarks for both combiners [here](txmap-benchmarks/combiner-bmh/combiner-bmh.json)
 
 ## Benchmarks
 ### Contention Benchmarks
@@ -14,29 +14,29 @@ ContentionBenchmark.balanced_1thread     thrpt   10    35757.366 ± 122322.352  
 ContentionBenchmark.balanced_2threads    thrpt   10    38625.053 ±  68046.451  ops/s
 ContentionBenchmark.balanced_4threads    thrpt   10   347914.810 ± 350454.468  ops/s
 ContentionBenchmark.balanced_8threads    thrpt   10   789153.207 ± 680702.248  ops/s
-ContentionBenchmark.readHeavy_1thread    thrpt   10    45780.687 ± 171300.706  ops/s
-ContentionBenchmark.readHeavy_2threads   thrpt   10    13955.124 ±   6304.961  ops/s
-ContentionBenchmark.readHeavy_4threads   thrpt   10   217778.442 ± 429991.675  ops/s
-ContentionBenchmark.readHeavy_8threads   thrpt   10  1215648.069 ± 603733.944  ops/s
-ContentionBenchmark.writeHeavy_1thread   thrpt   10    39702.462 ±  86894.867  ops/s
-ContentionBenchmark.writeHeavy_2threads  thrpt   10   176123.286 ± 426782.003  ops/s
-ContentionBenchmark.writeHeavy_4threads  thrpt   10   259774.303 ± 298855.645  ops/s
-ContentionBenchmark.writeHeavy_8threads  thrpt   10   604584.958 ± 367519.210  ops/s
+ContentionBenchmark.readHeavy_1thread    thrpt   10   47736.005 ± 176944.354  ops/s
+ContentionBenchmark.readHeavy_2threads   thrpt   10   13499.617 ±   4973.406  ops/s
+ContentionBenchmark.readHeavy_4threads   thrpt   10  308882.135 ± 428477.946  ops/s
+ContentionBenchmark.readHeavy_8threads   thrpt   10  540830.116 ± 231179.503  ops/s
+ContentionBenchmark.writeHeavy_1thread   thrpt   10    9547.529 ±   5156.389  ops/s
+ContentionBenchmark.writeHeavy_2threads  thrpt   10  160604.423 ± 372988.782  ops/s
+ContentionBenchmark.writeHeavy_4threads  thrpt   10  382199.093 ± 497697.538  ops/s
+ContentionBenchmark.writeHeavy_8threads  thrpt   10  745836.137 ± 500389.823  ops/s
 
 Semaphore Combiner
 Benchmark                                 Mode  Cnt       Score        Error  Units
-ContentionBenchmark.balanced_1thread     thrpt   10    8691.716 ±   7952.938  ops/s
-ContentionBenchmark.balanced_2threads    thrpt   10  311275.172 ± 643421.974  ops/s
-ContentionBenchmark.balanced_4threads    thrpt   10  479575.401 ± 586943.131  ops/s
-ContentionBenchmark.balanced_8threads    thrpt   10  740289.150 ± 267839.545  ops/s
-ContentionBenchmark.readHeavy_1thread    thrpt   10   12509.736 ±   9789.231  ops/s
-ContentionBenchmark.readHeavy_2threads   thrpt   10   62504.514 ± 130789.995  ops/s
-ContentionBenchmark.readHeavy_4threads   thrpt   10  274208.521 ± 499644.864  ops/s
-ContentionBenchmark.readHeavy_8threads   thrpt   10  618049.793 ± 399227.699  ops/s
-ContentionBenchmark.writeHeavy_1thread   thrpt   10   12018.321 ±  10948.525  ops/s
-ContentionBenchmark.writeHeavy_2threads  thrpt   10   51510.547 ±  93268.852  ops/s
-ContentionBenchmark.writeHeavy_4threads  thrpt   10  564511.373 ± 581944.292  ops/s
-ContentionBenchmark.writeHeavy_8threads  thrpt   10  757160.797 ± 579021.497  ops/s
+ContentionBenchmark.balanced_1thread     thrpt   10  1026570.953 ±  67365.851  ops/s
+ContentionBenchmark.balanced_2threads    thrpt   10  1182682.099 ±  75053.771  ops/s
+ContentionBenchmark.balanced_4threads    thrpt   10   579409.708 ± 265919.034  ops/s
+ContentionBenchmark.balanced_8threads    thrpt   10   491430.353 ± 284108.971  ops/s
+ContentionBenchmark.readHeavy_1thread    thrpt   10   699347.867 ± 448018.766  ops/s
+ContentionBenchmark.readHeavy_2threads   thrpt   10  1441035.612 ± 348728.286  ops/s
+ContentionBenchmark.readHeavy_4threads   thrpt   10   957843.424 ±  74123.760  ops/s
+ContentionBenchmark.readHeavy_8threads   thrpt   10   512754.742 ±  57561.496  ops/s
+ContentionBenchmark.writeHeavy_1thread   thrpt   10   910929.924 ±  49878.775  ops/s
+ContentionBenchmark.writeHeavy_2threads  thrpt   10  1013666.736 ±  70022.245  ops/s
+ContentionBenchmark.writeHeavy_4threads  thrpt   10   5910929.924 ± 277831.775  ops/s
+ContentionBenchmark.writeHeavy_8threads  thrpt   10   482442.733 ± 208956.257  ops/s
 
 
 ### Disjoint Key Benchmarks
