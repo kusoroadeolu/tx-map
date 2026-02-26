@@ -1,4 +1,4 @@
-package io.github.kusoroadeolu.txmap.snapshot;
+package io.github.kusoroadeolu.txmap.uncommitted;
 
 import io.github.kusoroadeolu.ferrous.option.None;
 import io.github.kusoroadeolu.ferrous.option.Option;
@@ -30,11 +30,11 @@ import static io.github.kusoroadeolu.txmap.Operation.SizeOperation.SIZE;
  * 6. The read of a get/contains keys of the map in a transaction happens before the commit of the transaction, subsequent gets/contains retrieve values from their local transaction's store buffer
  * */
 //DIRTY READ Isolation level
-public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
+public class ReadUncommittedTransactionalMap<K, V> implements TransactionalMap<K, V> {
     private final LockHolder<K, V> holder;
     private final ConcurrentMap<K, V> map;
 
-    public SnapshotTransactionalMap() {
+    public ReadUncommittedTransactionalMap() {
         this.holder = new LockHolder<>();
         this.map = new ConcurrentHashMap<>();
     }
@@ -46,7 +46,7 @@ public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
 
     static class MapTransactionImpl<K, V> implements MapTransaction<K, V> {
         //This transactional map
-        final SnapshotTransactionalMap<K, V> txMap;
+        final ReadUncommittedTransactionalMap<K, V> txMap;
 
 
         //Local fields
@@ -59,7 +59,7 @@ public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
         private final Map<K, V> storeBuf;
 
 
-        public MapTransactionImpl(SnapshotTransactionalMap<K, V> txMap){
+        public MapTransactionImpl(ReadUncommittedTransactionalMap<K, V> txMap){
             this.txMap = txMap;
             this.storeBuf = new HashMap<>();
             this.heldLocks = new HashSet<>();

@@ -1,4 +1,4 @@
-package io.github.kusoroadeolu.txmap.snapshot;
+package io.github.kusoroadeolu.txmap.uncommitted;
 
 
 import java.util.concurrent.ConcurrentHashMap;

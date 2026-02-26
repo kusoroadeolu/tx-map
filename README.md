@@ -56,7 +56,7 @@ ContentionBenchmark.writeHeavy_2threads  thrpt   10  1267212.992 ±  84527.247  
 ContentionBenchmark.writeHeavy_4threads  thrpt   10   395840.268 ±  40371.726  ops/s
 ContentionBenchmark.writeHeavy_8threads  thrpt   10   404606.840 ±   7423.453  ops/s
 
-Snapshot
+Read Uncommitted
 Benchmark                                 Mode  Cnt        Score        Error  Units
 ContentionBenchmark.balanced_1thread     thrpt   10  1654203.862 ± 154088.221  ops/s
 ContentionBenchmark.balanced_2threads    thrpt   10  2325491.548 ± 321923.612  ops/s
@@ -100,7 +100,7 @@ DisjointKeyBenchmark.txMap_put_2threads     thrpt   10  2197675.695 ± 347752.29
 DisjointKeyBenchmark.txMap_put_4threads     thrpt   10  3091877.275 ± 463701.374  ops/s
 DisjointKeyBenchmark.txMap_put_8threads     thrpt   10  3353050.407 ±  93997.324  ops/s
 
-Snapshot
+Read Uncommitted
 Benchmark                                    Mode  Cnt        Score        Error  Units
 DisjointKeyBenchmark.txMap_batch_16threads  thrpt   10  1775809.571 ±  26395.357  ops/s
 DisjointKeyBenchmark.txMap_batch_1thread    thrpt   10   959202.970 ± 193575.199  ops/s
