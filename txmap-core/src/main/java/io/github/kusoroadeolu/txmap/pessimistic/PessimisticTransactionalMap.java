@@ -31,6 +31,7 @@ import static io.github.kusoroadeolu.txmap.Operation.SizeOperation.SIZE;
  * 7. During commits, the release of all held locks happens before the removal of open nested child transactions. This guarantee is upheld by deterministic ordering
  * 8. During aborts, the release of all held locks happens before the removal of open nested child transactions. This guarantee is upheld by deterministic ordering
  * */
+// READ COMMITTED Isolation level
 public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V> {
     private final ConcurrentMap<K, V> map;
 
@@ -394,11 +395,10 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
                         txSet.lock(s -> s.add(txSet), heldLocks, cmtx);
                     });
 
-
-            txMap.keyToLockers.getOrCreate(key, CONTAINS)
-                    .ifSome(txSet -> {
-                        txSet.lock(s -> s.add(txSet), heldLocks, cmtx);
-                    });
+            var containsSet = txMap.keyToLockers.getOrCreate(key, CONTAINS);
+            boolean heldByThisTx = containsSet
+                    .map(txSet -> txSet.lock(s -> s.add(txSet), heldLocks, cmtx))
+                    .unwrap();
 
             //Now that we have the iLock for contains key , we can check the underlying map to see if we should obtain the size iLock too
             boolean containsKey = txMap.map.containsKey(key);
@@ -406,11 +406,21 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
             var opType = ((Operation.ModifyOperation<?>) op).type();
              switch (opType){
                  case PUT -> {
-                     if (!containsKey) sizeSet.lock(s -> s.contains(sizeSet), heldLocks, cmtx);
+                     if (!containsKey) {
+                         sizeSet.lock(s -> s.contains(sizeSet), heldLocks, cmtx);
+                     }else{
+                         var unwrappedSet = containsSet.unwrap();
+                         if(heldByThisTx && heldLocks.remove(unwrappedSet)) unwrappedSet.release();
+                     }
                  }
 
                  case REMOVE -> {
-                    if (containsKey) sizeSet.lock(s -> s.contains(sizeSet), heldLocks, cmtx);
+                    if (containsKey) {
+                        sizeSet.lock(s -> s.contains(sizeSet), heldLocks, cmtx);
+                    }else{
+                        var unwrappedSet = containsSet.unwrap();
+                        if(heldByThisTx && heldLocks.remove(unwrappedSet)) unwrappedSet.release();
+                    }
 
                 }
 

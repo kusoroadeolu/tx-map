@@ -17,7 +17,7 @@ class TransactionalMapTest {
 
     @BeforeEach
     void setUp() {
-        txMap = TransactionalMap.createSnapshot();
+        txMap = TransactionalMap.createPessimistic();
     }
 
     // -------------------------------------------------------------------------

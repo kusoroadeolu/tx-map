@@ -40,14 +40,17 @@ class GuardedTxSet {
     }
 
     //Ensure only one tx can abort at a time, and only the tx that aborted can take the lock
-    public void lock(Predicate<Set<GuardedTxSet>> shouldHold, Set<GuardedTxSet> held, Transaction tx){
+    public boolean lock(Predicate<Set<GuardedTxSet>> shouldHold, Set<GuardedTxSet> held, Transaction tx){
         if (shouldHold.test(held)){
             this.lock();
             latch = new Latch(HELD, tx.parent().unwrap() ,new CountDownLatch(1)); //Set both HELD and latch as a single atomic op. Prevents a scenario where a reader sees held but sees an old value of latch
             while (readerCount.get() > 0) Thread.onSpinWait(); //Wait for existing readers to commit
-        }
+            return true;
+        }else return false;
     }
 
+
+    //This method should only be acquired by modify operations, during acquire and reorder
     public void lock(){
         this.writeLock.lock();
     }

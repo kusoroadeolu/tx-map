@@ -20,6 +20,7 @@ import static io.github.kusoroadeolu.txmap.Operation.ModifyType.REMOVE;
 import static io.github.kusoroadeolu.txmap.Operation.SizeOperation.SIZE;
 import static io.github.kusoroadeolu.txmap.TransactionState.*;
 
+//This might be a DIRTY READ Isolation level since another transaction could commit before this
 public class CopyOnWriteTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final AtomicReference<ConcurrentMap<K, V>> map;
 

@@ -29,6 +29,7 @@ import static io.github.kusoroadeolu.txmap.Operation.SizeOperation.SIZE;
  * 5. The read of a size of the map in a transaction happens before the commit of the transaction
  * 6. The read of a get/contains keys of the map in a transaction happens before the commit of the transaction, subsequent gets/contains retrieve values from their local transaction's store buffer
  * */
+//DIRTY READ Isolation level
 public class SnapshotTransactionalMap<K, V> implements TransactionalMap<K, V> {
     private final LockHolder<K, V> holder;
     private final ConcurrentMap<K, V> map;
