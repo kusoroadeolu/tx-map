@@ -343,7 +343,7 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
             //Now that we have the iLock for contains key , we can check the underlying map to see if we should obtain the size iLock too
             boolean heldByThisTx = this.holdWriteLockForReadType(containsSet, heldLocks, CONTAINS); //Check if this transaction held this lock, otherwise a previous transaction couldve held this lock
             boolean containsKey = txMap.map.containsKey(key);
-
+            
 
             var sizeSet = txMap.sizeLockers;
             switch (op.type()){
@@ -354,7 +354,9 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
                         this.holdWriteLockForReadType(optionSizeSet, heldLocks, SIZE);
 
                     }else {
-                        if(heldByThisTx) this.findExistingWriteLock(CONTAINS).ifPresent(LockWrapper::unlock); //If "contains key is already present, then it will return true always, hence we dont need this lock,"
+                       if(heldByThisTx) this.findExistingWriteLock(CONTAINS).ifPresent(lw -> {
+                           if(heldLocks.remove(lw)) lw.unlock();
+                       }); //If "contains key is already present, then it will return true always, hence we dont need this lock,"
                     }
                 }
 
@@ -365,7 +367,9 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
                         this.holdWriteLockForReadType(optionSizeSet, heldLocks, SIZE);
 
                     }else {
-                        if(heldByThisTx) this.findExistingWriteLock(CONTAINS).ifPresent(LockWrapper::unlock);
+                        if(heldByThisTx) this.findExistingWriteLock(CONTAINS).ifPresent(lw -> {
+                            if(heldLocks.remove(lw)) lw.unlock();
+                        });
                     }
                 }
 
@@ -381,7 +385,7 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
                             lw.lock();
                             return true;
                         }
-
+                        
                         return false;
                     }).unwrap();
         }

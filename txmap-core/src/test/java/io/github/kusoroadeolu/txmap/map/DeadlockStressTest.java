@@ -98,7 +98,6 @@ public class DeadlockStressTest {
 
                 Future<?> txFuture = txExecutor.submit(() -> {
                     var tx = txMap.beginTx();
-                    try {
                         if (doPut) {
                             tx.put(key1, "v-" + threadId);
                             tx.remove(key2);  // mixed op in same tx
@@ -110,10 +109,6 @@ public class DeadlockStressTest {
                             tx.commit();
                             removes.incrementAndGet();
                         }
-                    } catch (Exception e) {
-                        try { tx.abort(); } catch (Exception ignored) {}
-                        aborts.incrementAndGet();
-                    }
                 });
 
                 try {
@@ -126,8 +121,7 @@ public class DeadlockStressTest {
                     txFuture.cancel(true);
                     // Fail fast
                     throw new RuntimeException("Deadlock detected on thread " + threadId);
-                } catch (ExecutionException | InterruptedException e) {
-                    // tx-level exception already handled inside, just continue
+                } catch (ExecutionException | InterruptedException _) {
                 }
             }
         } finally {
