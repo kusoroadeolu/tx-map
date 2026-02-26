@@ -1,9 +1,7 @@
 package io.github.kusoroadeolu.txmap.map;
 
 
-import io.github.kusoroadeolu.txmap.FlatCombinedTxMap;
-import io.github.kusoroadeolu.txmap.MapTransaction;
-import io.github.kusoroadeolu.txmap.UnboundCombiner;
+import io.github.kusoroadeolu.txmap.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -15,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class QuickTest {
     @Test
     public void testComb() throws InterruptedException {
-        UnboundCombiner<List<Integer>> unboundCombiner = new UnboundCombiner<>(new ArrayList<>());
+        Combiner<List<Integer>> unboundCombiner = new SemaphoreCombiner<>(new ArrayList<>());
         for (int i = 0; i < 170; ++i){
             int j = i;
             Thread.startVirtualThread(() -> unboundCombiner.combine(list -> list.add(j)));

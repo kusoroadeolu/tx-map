@@ -6,8 +6,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 
 //Rather than cleaning up old nodes, this combiner reuses nodes, it assumes a max of N threads using this combiner
-/*
-* So this combiner
+/* Happens before guarantees
+* The reset of a current thread local node happens before the swap of the current shared node
+* Setting the action the current thread wants to perform happens before we link our current thread local node to our old thread local node
+* The unlinking application of each node's action by the combiner happens before the node is unlinked
+* The setting of each node as the combiner happens before
 *
 * */
 public class SemaphoreCombiner<E> implements Combiner<E>{
@@ -89,23 +92,50 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
         this.threshold = threshold;
     }
 
+    /*
+    * 1x
+    * 1x, 0y Thread 1, and 0y is the current node
+    * 1x, 0y, 0z where 1 is the combiner and x is the thread name Thread 2 and 0z is the current node
+    * Then we combine
+    * 1x -> 1, 0y -> 1y, 0z -> 1z, and 1z is now the combiner and unlink them all
+    * Thread 1 comes again, holding 1x
+    * 1z, 0x(combiner in atomic ref)
+    * Thread 2 comes holding 0y
+    * 1z, 0x, 0y, then we combine again
+    * Therefore only one combiner can be active at a time
+    * */
+
+    /*
+     * 1x
+     * 1x, 0y Thread 1, and 0y is the current node
+     * 1x, 0y, 0z where 1 is the combiner and x is the thread name Thread 2 and 0z is the current node
+     * Then we combine
+     * 1x -> 0x, 0y -> 0y, 0z -> 1z, and 1z is now the combiner since it was the tail and unlink them all as we combine
+     * Thread 1 comes again, holding 1x
+     * 1z, 0x(combiner in atomic ref)
+     * Thread 2 comes holding 0y
+     * 1z, 0x, 0y, then we combine again
+     * Therefore only one combiner can be active at a time
+     * */
     @SuppressWarnings("unchecked")
     @Override
     public <R>R combine(Action<E, R> action) {
-        Node<E, R> newTail = (Node<E, R>) local.get();
+        //Get our thread local node, reset it and make it not the combiner
+        var newTail = (Node<E, R>) local.get();
         newTail.stateful.isApplied = false;
         newTail.status.lazySet(Node.NOT_COMBINER);
 
-
+        //Then set our thread local node to be the new tail, retrieve the old tail, and set it as our thread local node
         var curNode = (Node<E, R>) head.getAndSet((Node<E, Object>) newTail);
         local.set(curNode);
 
-        // A brief window where, we can't be reached by a former tail
+        //Set our action for our current thread local node, and set our old thread local node as our tail,
         curNode.stateful.action = action;
         curNode.setNext(newTail);
 
         var stateful = curNode.stateful;
 
+        //While we aren't the combiner, for instance a combiner has already claimed the combining node, wait, otherwise, we're the combiner
         while (curNode.status.get() == Node.NOT_COMBINER){
             int spins = 0;
             while (++spins < SPIN_COUNT) {
@@ -119,16 +149,18 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
         Node<E, R> node = curNode;
         Node<E, R> next;
 
+        //Then apply each node and set them as the combiner, at this point, there will no node that's the combiner
         for (int i = 0; i < threshold && (next = node.next) != null; ++i, node = next){
             node.stateful.apply(e);
             node.stateful.isApplied = true;
 
             node.stateful.action = null;
-            node.next = null; //Break the link, volatile write immediately makes is applied and action visibile
+            node.next = null; //Break the link, volatile write immediately makes is applied and action visible
+            //After we set each node as the combiner, remember that at the beginning, each node always resets their combining status, so multiple nodes cannot be the combiner, so when a thread gets the current atomic node, our
             node.status.lazySet(Node.IS_COMBINER);
         }
 
-        node.status.set(Node.IS_COMBINER);
+        node.status.set(Node.IS_COMBINER); //Set the current tail up to x threshold (basically the note in atomic ref) to be the combiner, this set ensures all "IS COMBINER writes are also visible"
         return stateful.result;
     }
 

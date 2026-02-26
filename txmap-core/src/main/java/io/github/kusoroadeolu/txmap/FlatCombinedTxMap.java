@@ -3,37 +3,40 @@ package io.github.kusoroadeolu.txmap;
 import io.github.kusoroadeolu.ferrous.option.Option;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
-    private final ConcurrentMap<K, V> map;
+    private final Map<K, V> map;
 
     public FlatCombinedTxMap() {
-        this.map = new ConcurrentHashMap<>();
+        this.map = new HashMap<>();
     }
+
 
     @Override
     public MapTransaction<K, V> beginTx() {
         return new CombinedMapTransaction<>(this);
     }
 
-    public ConcurrentMap<K, V> map(){
+    public Map<K, V> map(){
         return map;
     }
 
 
     private static class CombinedMapTransaction<K, V> implements MapTransaction<K, V>{
         private final List<FutureActionWrapper<K, ?>> actions;
-        private final ConcurrentMap<K, V> underlying;
+        private final Map<K, V> underlying;
         private TransactionState state = TransactionState.SCHEDULED;
         private final Combiner<BatchTxAction<K, V>> combiner;
 
         public CombinedMapTransaction(FlatCombinedTxMap<K, V> txMap) {
             this.actions = new ArrayList<>();
             this.underlying = txMap.map;
-            this.combiner = new UnboundCombiner<>(new BatchTxAction<>(actions));
+            this.combiner = new SemaphoreCombiner<>(new BatchTxAction<>(actions));
         }
 
         @Override

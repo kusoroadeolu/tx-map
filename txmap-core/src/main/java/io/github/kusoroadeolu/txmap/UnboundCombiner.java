@@ -13,7 +13,6 @@ public class UnboundCombiner<E> implements Combiner<E>{
         volatile Action<E, R> action;
         R result;
 
-        static final int WAITING = 2;
         static final int ACTIVE = 1;
         static final int INACTIVE = 0;
         private final AtomicInteger status;
@@ -51,7 +50,7 @@ public class UnboundCombiner<E> implements Combiner<E>{
         }
 
         void setActive(){
-            this.status.lazySet(ACTIVE);
+            this.status.set(ACTIVE);
         }
 
     }
@@ -104,14 +103,13 @@ public class UnboundCombiner<E> implements Combiner<E>{
     public <R>R combine(Action<E, R> action) {
         Node<E, R> node = (Node<E, R>) local.get();
         var stateful = node.statefulAction;
+        stateful.setActionAndNullResult(action);
 
         if (stateful.isInactive()){
-            node.statefulAction.status.set(ACTIVE);
+            node.statefulAction.setActive();
             Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node);
             node.setTail(prevHead);
         }
-
-        stateful.setActionAndNullResult(action);
 
         int spins;
         while (stateful.action != null){
@@ -135,7 +133,7 @@ public class UnboundCombiner<E> implements Combiner<E>{
 
             //Ensure to always check in the loop, just to prevent a situation where we think we're still active but we're not
             if (stateful.isInactive()){
-                node.statefulAction.status.set(ACTIVE);
+                node.statefulAction.setActive();
                 Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node);
                 node.setTail(prevHead);
             }
@@ -150,17 +148,13 @@ public class UnboundCombiner<E> implements Combiner<E>{
         Node<E, Object> node = seenHead;
         ++count;
 
-        while (!node.equals(DUMMY)){
+        while (node != null && !node.equals(DUMMY)){
             this.apply(node);
-            while (node.tail == null) {
-
-                Thread.onSpinWait(); //This spin should be relatively short, we're using this to bridge the gap from when the node was set as the head to when we set its tail
-            }
             node = node.tail;
         }
 
 
-        if (count >= threshold){
+        if (seenHead != null && count >= threshold){
             dequeFromHead(seenHead);
         }
 
