@@ -30,3 +30,13 @@ TxMapCombinerBenchmark.threadScaling_2  thrpt   10  6585958.748 ± 508671.639  o
 TxMapCombinerBenchmark.threadScaling_4  thrpt   10  5176171.714 ± 132479.762  ops/s
 TxMapCombinerBenchmark.threadScaling_8  thrpt   10  3680776.182 ± 135464.117  ops/s
 
+## Array
+Benchmark                                Mode  Cnt        Score        Error  Units
+TxMapCombinerBenchmark.opsPerTx_1       thrpt   10  5714849.028 ± 208062.021  ops/s
+TxMapCombinerBenchmark.opsPerTx_10      thrpt   10  1472287.361 ±  44788.852  ops/s
+TxMapCombinerBenchmark.opsPerTx_3       thrpt   10  3181997.290 ±  83320.402  ops/s
+TxMapCombinerBenchmark.opsPerTx_5       thrpt   10  2382741.149 ± 353649.223  ops/s
+TxMapCombinerBenchmark.threadScaling_1  thrpt   10  7179426.424 ± 335455.437  ops/s
+TxMapCombinerBenchmark.threadScaling_2  thrpt   10  6360889.181 ± 420022.660  ops/s
+TxMapCombinerBenchmark.threadScaling_4  thrpt   10  5396058.160 ± 221359.859  ops/s
+TxMapCombinerBenchmark.threadScaling_8  thrpt   10  4120690.373 ±  67741.557  ops/s

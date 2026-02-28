@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
     private final Map<K, V> map;
@@ -39,19 +37,19 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
 
     private static class CombinedMapTransaction<K, V> implements MapTransaction<K, V>{
         private final List<FutureActionWrapper<K, V>> actions;
-        private final Map<K, V> underlying;
+        private final Map<K, V> map;
         private TransactionState state = TransactionState.SCHEDULED;
         private final Combiner<Map<K, V>> combiner;
 
         public CombinedMapTransaction(FlatCombinedTxMap<K, V> txMap) {
             this.actions = new ArrayList<>();
-            this.underlying = txMap.map;
+            this.map = txMap.map;
             this.combiner = txMap.combiner;
         }
 
         @Override
         public FutureValue<Option<V>> put(K key, V value) {
-            Action<Map<K, V>, Object> putAction = _ -> underlying.put(key, value);
+            Action<Map<K, V>, Object> putAction = _ -> map.put(key, value);
             FutureValue<Option<V>> fv = new FutureValue<>();
             actions.add(new FutureActionWrapper<>(putAction, fv));
             return fv;
@@ -59,7 +57,7 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
 
         @Override
         public FutureValue<Option<V>> remove(K key) {
-            Action<Map<K, V>, Object> rmvAction = _ -> underlying.remove(key);
+            Action<Map<K, V>, Object> rmvAction = _ -> map.remove(key);
             FutureValue<Option<V>> fv = new FutureValue<>();
             actions.add(new FutureActionWrapper<>(rmvAction, fv));
             return fv;
@@ -67,7 +65,7 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
 
         @Override
         public FutureValue<Option<V>> get(K key) {
-            Action<Map<K, V>, Object> getAction = _ -> underlying.get(key);
+            Action<Map<K, V>, Object> getAction = _ -> map.get(key);
             FutureValue<Option<V>> fv = new FutureValue<>();
             actions.add(new FutureActionWrapper<>(getAction, fv));
             return fv;
@@ -75,7 +73,7 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
 
         @Override
         public FutureValue<Boolean> containsKey(K key) {
-            Action<Map<K, V>, Object> containsKey = _ -> underlying.containsKey(key);
+            Action<Map<K, V>, Object> containsKey = _ -> map.containsKey(key);
             FutureValue<Boolean> fv = new FutureValue<>();
             actions.add(new FutureActionWrapper<>(containsKey, fv));
             return fv;
@@ -83,7 +81,7 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
 
         @Override
         public FutureValue<Integer> size() {
-            Action<Map<K, V>, Object> sizeAction = _ -> underlying.size();
+            Action<Map<K, V>, Object> sizeAction = _ -> map.size();
             FutureValue<Integer> fv = new FutureValue<>();
             actions.add(new FutureActionWrapper<>(sizeAction, fv));
             return fv;
@@ -97,9 +95,9 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
         @Override
         public void commit() {
             if (state == TransactionState.ABORTED) throw new RuntimeException("Cannot commit an aborted tx");
-            combiner.combine(map -> {
+            combiner.combine(_ -> {
                 for (FutureActionWrapper<K, V> fw : actions) {
-                    Object result = fw.action().apply(map);
+                    Object result = fw.action().apply(this.map);
                     fw.fv().complete(Option.ofNullable(result));
                 }
                 return null;

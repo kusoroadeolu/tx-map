@@ -27,7 +27,7 @@ public class QuickTest {
 
     @Test
     public void testComb2() throws InterruptedException {
-        Combiner<List<Integer>> unboundCombiner = new SemaphoreCombiner<>(new ArrayList<>());
+        Combiner<List<Integer>> unboundCombiner = new AtomicArrayCombiner<>(new ArrayList<>());
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(100);
         AtomicInteger hanging = new AtomicInteger(200);

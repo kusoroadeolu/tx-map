@@ -1,6 +1,7 @@
 package io.github.kusoroadeolu.txmap;
 
 
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -114,7 +115,7 @@ public class UnboundCombiner<E> implements Combiner<E>{
             if (lock.tryLock()){
                 try {
                     scanCombineApply();
-                    if(stateful.action == null) return stateful.result; //Return while we still hold the lock, ensure we check before we return in the case a combiner removed our node before we acquired the lock and became the combiner
+                    if(stateful.action == null) return stateful.result; //Volatile read makes the value of result visible, ensure we check before we return in the case a combiner removed our node before we acquired the lock and became the combiner
                 }finally {
                     lock.unlock();
                 }
