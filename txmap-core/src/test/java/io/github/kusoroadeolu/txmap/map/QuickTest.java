@@ -9,11 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.concurrent.atomic.LongAdder;
 
 public class QuickTest {
     @Test
     public void testComb() throws InterruptedException {
-        Combiner<List<Integer>> unboundCombiner = new SemaphoreCombiner<>(new ArrayList<>());
+        Combiner<List<Integer>> unboundCombiner = new AtomicArrayCombiner<>(new ArrayList<>());
         for (int i = 0; i < 170; ++i){
             int j = i;
             Thread.startVirtualThread(() -> unboundCombiner.combine(list -> list.add(j)));
@@ -25,7 +27,7 @@ public class QuickTest {
 
     @Test
     public void testComb2() throws InterruptedException {
-        UnboundCombiner<List<Integer>> unboundCombiner = new UnboundCombiner<>(new ArrayList<>());
+        Combiner<List<Integer>> unboundCombiner = new AtomicArrayCombiner<>(new ArrayList<>());
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(100);
         AtomicInteger hanging = new AtomicInteger(100);
@@ -50,16 +52,5 @@ public class QuickTest {
 
     }
 
-    @Test
-    public void testConcMap(){
-        FlatCombinedTxMap<String, Integer> map = new FlatCombinedTxMap<>();
-        try(var tx = map.beginTx()) {
-            tx.put("Hello", 2);
-            tx.put("Hii", 3);
-            tx.commit();
-        }
-
-        IO.println(map.map().get("Hii"));
-    }
 
 }

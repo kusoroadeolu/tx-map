@@ -11,7 +11,7 @@ public class UnboundCombiner<E> implements Combiner<E>{
 
     static class StatefulAction<E, R>{
         volatile Action<E, R> action;
-        R result;
+        volatile R result;
 
         static final int ACTIVE = 1;
         static final int INACTIVE = 0;
@@ -117,10 +117,8 @@ public class UnboundCombiner<E> implements Combiner<E>{
             if (lock.tryLock()){
                 try {
                     scanCombineApply();
-                    if (stateful.action == null) {
+                    if (stateful.action == null) return stateful.result;
 
-                        return stateful.result;
-                    }
                 }finally {
                     lock.unlock();
                 }
@@ -148,13 +146,13 @@ public class UnboundCombiner<E> implements Combiner<E>{
         Node<E, Object> node = seenHead;
         ++count;
 
-        while (node != null && !node.equals(DUMMY)){
+        while (!node.equals(DUMMY)){
             this.apply(node);
             node = node.tail;
         }
 
 
-        if (seenHead != null && count >= threshold){
+        if (count >= threshold){
             dequeFromHead(seenHead);
         }
 

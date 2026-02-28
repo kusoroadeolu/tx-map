@@ -12,6 +12,7 @@
     <modules>
         <module>txmap-core</module>
         <module>txmap-benchmarks</module>
+        <module>txmap-stress</module>
     </modules>
 
     <dependencies>
@@ -43,7 +44,6 @@
 <!--    </build>-->
 
     <properties>
-        <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

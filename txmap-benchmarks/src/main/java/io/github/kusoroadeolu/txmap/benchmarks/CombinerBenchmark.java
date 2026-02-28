@@ -1,7 +1,9 @@
 package io.github.kusoroadeolu.txmap.benchmarks;
 
-import io.github.kusoroadeolu.txmap.UnboundCombiner;
+import io.github.kusoroadeolu.txmap.AtomicArrayCombiner;
+import io.github.kusoroadeolu.txmap.Combiner;
 import io.github.kusoroadeolu.txmap.SemaphoreCombiner;
+import io.github.kusoroadeolu.txmap.UnboundCombiner;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
@@ -13,80 +15,103 @@ import java.util.concurrent.atomic.AtomicInteger;
 @State(Scope.Benchmark)           // All threads share one map instance — realistic
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
-@Fork(2)
+@Fork(value = 2)
 public class CombinerBenchmark {
 
-    private UnboundCombiner<AtomicInteger> unboundCombiner;
-    private SemaphoreCombiner<AtomicInteger> semCombiner;
-    final AtomicInteger num = new AtomicInteger(-1);
-
-    @State(Scope.Thread)
-    public static class ThreadState{
-        int value;
-
-        @Setup(Level.Trial)
-        public void setup(CombinerBenchmark bench) {
-            value = bench.num.incrementAndGet();
-        }
-    }
+    private Combiner<IntAdder> atomicArrCombiner;
+    private Combiner<IntAdder> unboundCombiner;
+    private SemaphoreCombiner<IntAdder> semCombiner;
 
     @Setup(Level.Trial)
     public void setup() {
-        unboundCombiner = new UnboundCombiner<>(new AtomicInteger());
-        semCombiner = new SemaphoreCombiner<>(new AtomicInteger());
+        unboundCombiner = new UnboundCombiner<>(new IntAdder());
+        atomicArrCombiner = new AtomicArrayCombiner<>(new IntAdder());
+        semCombiner = new SemaphoreCombiner<>(new IntAdder());
     }
 
     @Benchmark
     @Threads(1)
-    public void combiner_1thread(Blackhole bh, ThreadState ts) {
-        bh.consume(unboundCombiner.combine(AtomicInteger::incrementAndGet));
+    public void arr_combiner_1thread(Blackhole bh) {
+        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
     }
 
     @Benchmark
     @Threads(2)
-    public void combiner_2threads( Blackhole bh, ThreadState ts) {
-        bh.consume(unboundCombiner.combine(AtomicInteger::incrementAndGet));
+    public void arr_combiner_2threads( Blackhole bh) {
+        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
 
     }
 
     @Benchmark
     @Threads(4)
-    public void combiner_4threads( Blackhole bh, ThreadState ts) {
-        bh.consume(unboundCombiner.combine(AtomicInteger::incrementAndGet));
+    public void arr_combiner_4threads( Blackhole bh) {
+        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
 
     }
 
     @Benchmark
     @Threads(8)
-    public void combiner_8threads(Blackhole bh, ThreadState ts) {
-        bh.consume(unboundCombiner.combine(AtomicInteger::incrementAndGet));
+    public void arr_combiner_8threads(Blackhole bh) {
+        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
     }
 
+//    @Benchmark
+//    @Threads(1)
+//    public void unb_combiner_1thread(Blackhole bh) {
+//        bh.consume(unboundCombiner.combine(IntAdder::incrementAndGet));
+//    }
+//
+//    @Benchmark
+//    @Threads(2)
+//    public void unb_combiner_2threads( Blackhole bh) {
+//        bh.consume(unboundCombiner.combine(IntAdder::incrementAndGet));
+//
+//    }
+//
+//    @Benchmark
+//    @Threads(4)
+//    public void unb_combiner_4threads( Blackhole bh) {
+//        bh.consume(unboundCombiner.combine(IntAdder::incrementAndGet));
+//
+//    }
+//
+//    @Benchmark
+//    @Threads(8)
+//    public void unb_combiner_8threads(Blackhole bh) {
+//        bh.consume(unboundCombiner.combine(IntAdder::incrementAndGet));
+//    }
+//
+//
+//    @Benchmark
+//    @Threads(1)
+//    public void sem_combiner_1thread(Blackhole bh) {
+//        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
+//    }
+//
+//    @Benchmark
+//    @Threads(2)
+//    public void sem_combiner_2threads( Blackhole bh) {
+//        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
+//
+//    }
+//
+//    @Benchmark
+//    @Threads(4)
+//    public void sem_combiner_4threads( Blackhole bh) {
+//        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
+//    }
+//
+//    @Benchmark
+//    @Threads(8)
+//    public void sem_combiner_8threads(Blackhole bh) {
+//        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
+//    }
 
-    @Benchmark
-    @Threads(1)
-    public void s_combiner_1thread(Blackhole bh, ThreadState ts) {
-        bh.consume(semCombiner.combine(AtomicInteger::incrementAndGet));
+    static class IntAdder{
+        int a = 0;
+
+        int incrementAndGet(){
+            return ++a;
+        }
     }
-
-    @Benchmark
-    @Threads(2)
-    public void s_combiner_2threads( Blackhole bh, ThreadState ts) {
-        bh.consume(semCombiner.combine(AtomicInteger::incrementAndGet));
-
-    }
-
-    @Benchmark
-    @Threads(4)
-    public void s_combiner_4threads( Blackhole bh, ThreadState ts) {
-        bh.consume(semCombiner.combine(AtomicInteger::incrementAndGet));
-    }
-
-    @Benchmark
-    @Threads(8)
-    public void s_combiner_8threads(Blackhole bh, ThreadState ts) {
-        bh.consume(semCombiner.combine(AtomicInteger::incrementAndGet));
-    }
-
-
 }

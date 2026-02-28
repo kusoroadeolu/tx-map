@@ -22,8 +22,11 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
         boolean isApplied;
 
         void apply(E e){
-            if (canApply()) this.result = this.action.apply(e);
-            this.isApplied = true;
+            if (canApply()) {
+                this.result = this.action.apply(e);
+                this.isApplied = true;
+            }
+
         }
 
         boolean canApply(){
@@ -160,7 +163,8 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
             node.status.lazySet(Node.IS_COMBINER);
         }
 
-        node.status.set(Node.IS_COMBINER); //Set the current tail up to x threshold (basically the note in atomic ref) to be the combiner, this set ensures all "IS COMBINER writes are also visible"
+        node.status.lazySet(Node.IS_COMBINER); //Set the current tail up to x threshold (basically the note in atomic ref) to be the combiner, this ensures all "IS COMBINER writes are also visible"
+        //Looking back at this we don't need a full volatile set here, a set-release fence preventing the reordering of writes in the loop after the last node status is set, is better and less expensive
         return stateful.result;
     }
 
