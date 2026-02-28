@@ -31,3 +31,24 @@ DisjointKeyBenchmark.txMap_put_1thread      thrpt   10  1106413.379 ± 127584.82
 DisjointKeyBenchmark.txMap_put_2threads     thrpt   10  1471273.398 ± 283775.306  ops/s
 DisjointKeyBenchmark.txMap_put_4threads     thrpt   10  1834450.369 ± 110858.141  ops/s
 DisjointKeyBenchmark.txMap_put_8threads     thrpt   10  2053988.876 ±  61456.292  ops/s
+
+# Running the Benchmarks
+
+## Prerequisites
+- Java (version X+)
+- Maven
+
+## Steps
+
+1. **Build the jar** from the parent pom:
+```bash
+   mvn clean package -U
+```
+
+2. **Run the benchmarks:**
+```bash
+   java -jar txmap-benchmarks/target/benchmark.jar {BenchmarkClassName(Without the Parentheses)} -rf json -rff results.json
+```
+
+## Output
+Results will be saved to `results.json` in your current directory. You can open this with any JMH-compatible visualizer (e.g. [jmh.morethan.io](https://jmh.morethan.io/)).
