@@ -1,7 +1,9 @@
 package io.github.kusoroadeolu.txmap.stress;
 
 import org.openjdk.jcstress.annotations.*;
+import org.openjdk.jcstress.infra.results.II_Result;
 
+import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
@@ -81,6 +83,32 @@ public class VolatileVisibilityTest {
         public void signal(){
             integer.lazySet(1);
         }
+    }
+
+    //This is a stress test to see if lazy set allows values after it to be reordered before it. Lazy set uses a set release fence to ensure no writes before it are reorder with writes after it, but let's see if writes after can be reordered before it
+    @JCStressTest
+    @Outcome(id = {"1, 2", "-1, 2", "1, 0", "-1, 0"}, expect = ACCEPTABLE, desc = "Properly Ordered")
+    @Outcome(expect = ACCEPTABLE_INTERESTING, desc = "Reordered by compiler")
+    @State
+    public static class TestLazySetReordering{
+        private final AtomicInteger integer = new AtomicInteger(-1);  /*
+            tt, tf, ft, ff
+            12, 10, -12, -10
+        */
+        int num;
+
+        @Actor
+        public void actor(){
+            integer.lazySet(1);
+            num = 2;
+        }
+
+        @Actor
+        public void viewer(II_Result res){
+            res.r1 = integer.get();
+            res.r2 = num;
+        }
+
     }
 
 }

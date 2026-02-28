@@ -19,22 +19,11 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
     static class StatefulAction<E, R>{
         Action<E, R> action;
         R result;
-        boolean isApplied;
+        volatile boolean isApplied;
 
         void apply(E e){
-            if (canApply()) {
-                this.result = this.action.apply(e);
-                this.isApplied = true;
-            }
-
-        }
-
-        boolean canApply(){
-            return !this.isApplied;
-        }
-
-        R result(){
-            return result;
+            this.result = this.action.apply(e);
+            this.isApplied = true; //Volatile write here makes result eventually visible
         }
 
     }
@@ -66,7 +55,7 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
 
 
     private final static int SPIN_COUNT = 256;
-    private final AtomicReference<Node<E, Object>> head;
+    private final AtomicReference<Node<E, Object>> tail;
     private final E e;
     private final int threshold;
 
@@ -90,7 +79,7 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
 
     public SemaphoreCombiner(E e, int threshold) {
         this.local = ThreadLocal.withInitial(Node::new);
-        this.head = new AtomicReference<>(new Node<>(Node.IS_COMBINER));
+        this.tail = new AtomicReference<>(new Node<>(Node.IS_COMBINER));
         this.e = e;
         this.threshold = threshold;
     }
@@ -108,33 +97,23 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
     * Therefore only one combiner can be active at a time
     * */
 
-    /*
-     * 1x
-     * 1x, 0y Thread 1, and 0y is the current node
-     * 1x, 0y, 0z where 1 is the combiner and x is the thread name Thread 2 and 0z is the current node
-     * Then we combine
-     * 1x -> 0x, 0y -> 0y, 0z -> 1z, and 1z is now the combiner since it was the tail and unlink them all as we combine
-     * Thread 1 comes again, holding 1x
-     * 1z, 0x(combiner in atomic ref)
-     * Thread 2 comes holding 0y
-     * 1z, 0x, 0y, then we combine again
-     * Therefore only one combiner can be active at a time
-     * */
+
+
+    private int comNo;
     @SuppressWarnings("unchecked")
     @Override
     public <R>R combine(Action<E, R> action) {
         //Get our thread local node, reset it and make it not the combiner
         var newTail = (Node<E, R>) local.get();
         newTail.stateful.isApplied = false;
-        newTail.status.lazySet(Node.NOT_COMBINER);
+        newTail.status.setOpaque(Node.NOT_COMBINER); //We don't need full volatile write semantics here, heck we probably don't need any atomic semantics here, the get and set write from tail will eventually make this visible, though just to be safe, lets keep it this way
 
         //Then set our thread local node to be the new tail, retrieve the old tail, and set it as our thread local node
-        var curNode = (Node<E, R>) head.getAndSet((Node<E, Object>) newTail);
+        var curNode = (Node<E, R>) tail.getAndSet((Node<E, Object>) newTail);
         local.set(curNode);
 
-        //Set our action for our current thread local node, and set our old thread local node as our tail,
-        curNode.stateful.action = action;
-        curNode.setNext(newTail);
+        curNode.stateful.action = action; //Set our action before we set next
+        curNode.setNext(newTail); //A brief moment where our tail is not accessible, I could make this a volatile set to piggyback action to ensure action is eventually visible
 
         var stateful = curNode.stateful;
 
@@ -147,24 +126,22 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
         }
 
         if (stateful.isApplied) return stateful.result;
-
+        ++comNo;
+        assert comNo == 1 : "Multiple combiners found";
         //Now we're the combiner
         Node<E, R> node = curNode;
         Node<E, R> next;
 
-        //Then apply each node and set them as the combiner, at this point, there will no node that's the combiner
+        //Then apply each node and set them as the combiner, at this point, there will be no node that's the combiner
         for (int i = 0; i < threshold && (next = node.next) != null; ++i, node = next){
             node.stateful.apply(e);
-            node.stateful.isApplied = true;
-
             node.stateful.action = null;
-            node.next = null; //Break the link, volatile write immediately makes is applied and action visible
+            node.next = null; //Break the link,
             //After we set each node as the combiner, remember that at the beginning, each node always resets their combining status, so multiple nodes cannot be the combiner, so when a thread gets the current atomic node, our
-            node.status.lazySet(Node.IS_COMBINER);
+            node.status.lazySet(Node.IS_COMBINER); //volatile write makes next and action eventually visible, though for next and action might not matter since the thread holding the node will swap their node out the next time they return
         }
 
-        node.status.lazySet(Node.IS_COMBINER); //Set the current tail up to x threshold (basically the note in atomic ref) to be the combiner, this ensures all "IS COMBINER writes are also visible"
-        //Looking back at this we don't need a full volatile set here, a set-release fence preventing the reordering of writes in the loop after the last node status is set, is better and less expensive
+        node.status.setOpaque(Node.IS_COMBINER); //We just need visibility here, no need for ordering guarantees, since we honestly can't get reordered after lazy set
         return stateful.result;
     }
 

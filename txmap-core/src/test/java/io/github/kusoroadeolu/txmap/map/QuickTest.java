@@ -27,11 +27,11 @@ public class QuickTest {
 
     @Test
     public void testComb2() throws InterruptedException {
-        Combiner<List<Integer>> unboundCombiner = new AtomicArrayCombiner<>(new ArrayList<>());
+        Combiner<List<Integer>> unboundCombiner = new SemaphoreCombiner<>(new ArrayList<>());
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(100);
-        AtomicInteger hanging = new AtomicInteger(100);
-        for (int i = 0; i < 100; ++i){
+        AtomicInteger hanging = new AtomicInteger(200);
+        for (int i = 0; i < 200; ++i){
             int j = i;
             Thread.ofPlatform().name(i+"").start(() -> {
                    try {
@@ -48,7 +48,7 @@ public class QuickTest {
         }
         start.countDown();
         done.await();
-        IO.println(unboundCombiner.e().size());
+        IO.println("SIZE:" + unboundCombiner.e().size());
 
     }
 

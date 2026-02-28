@@ -29,31 +29,31 @@ public class CombinerBenchmark {
         semCombiner = new SemaphoreCombiner<>(new IntAdder());
     }
 
-    @Benchmark
-    @Threads(1)
-    public void arr_combiner_1thread(Blackhole bh) {
-        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
-    }
-
-    @Benchmark
-    @Threads(2)
-    public void arr_combiner_2threads( Blackhole bh) {
-        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
-
-    }
-
-    @Benchmark
-    @Threads(4)
-    public void arr_combiner_4threads( Blackhole bh) {
-        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
-
-    }
-
-    @Benchmark
-    @Threads(8)
-    public void arr_combiner_8threads(Blackhole bh) {
-        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
-    }
+//    @Benchmark
+//    @Threads(1)
+//    public void arr_combiner_1thread(Blackhole bh) {
+//        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
+//    }
+//
+//    @Benchmark
+//    @Threads(2)
+//    public void arr_combiner_2threads( Blackhole bh) {
+//        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
+//
+//    }
+//
+//    @Benchmark
+//    @Threads(4)
+//    public void arr_combiner_4threads( Blackhole bh) {
+//        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
+//
+//    }
+//
+//    @Benchmark
+//    @Threads(8)
+//    public void arr_combiner_8threads(Blackhole bh) {
+//        bh.consume(atomicArrCombiner.combine(IntAdder::incrementAndGet));
+//    }
 
 //    @Benchmark
 //    @Threads(1)
@@ -82,30 +82,30 @@ public class CombinerBenchmark {
 //    }
 //
 //
-//    @Benchmark
-//    @Threads(1)
-//    public void sem_combiner_1thread(Blackhole bh) {
-//        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
-//    }
-//
-//    @Benchmark
-//    @Threads(2)
-//    public void sem_combiner_2threads( Blackhole bh) {
-//        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
-//
-//    }
-//
-//    @Benchmark
-//    @Threads(4)
-//    public void sem_combiner_4threads( Blackhole bh) {
-//        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
-//    }
-//
-//    @Benchmark
-//    @Threads(8)
-//    public void sem_combiner_8threads(Blackhole bh) {
-//        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
-//    }
+    @Benchmark
+    @Threads(1)
+    public void sem_combiner_1thread(Blackhole bh) {
+        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
+    }
+
+    @Benchmark
+    @Threads(2)
+    public void sem_combiner_2threads( Blackhole bh) {
+        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
+
+    }
+
+    @Benchmark
+    @Threads(4)
+    public void sem_combiner_4threads( Blackhole bh) {
+        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
+    }
+
+    @Benchmark
+    @Threads(8)
+    public void sem_combiner_8threads(Blackhole bh) {
+        bh.consume(semCombiner.combine(IntAdder::incrementAndGet));
+    }
 
     static class IntAdder{
         int a = 0;

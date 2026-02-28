@@ -7,4 +7,8 @@ public interface TransactionalMap<K, V> {
     static <K, V>TransactionalMap<K, V> createFlatCombined(){
         return new FlatCombinedTxMap<>();
     }
+
+    static <K, V>TransactionalMap<K, V> createFlatCombined(CombinerType type){
+        return new FlatCombinedTxMap<>(type);
+    }
 }

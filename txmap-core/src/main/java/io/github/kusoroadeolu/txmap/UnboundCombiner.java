@@ -11,7 +11,7 @@ public class UnboundCombiner<E> implements Combiner<E>{
 
     static class StatefulAction<E, R>{
         volatile Action<E, R> action;
-        volatile R result;
+        R result;
 
         static final int ACTIVE = 1;
         static final int INACTIVE = 0;
@@ -42,7 +42,7 @@ public class UnboundCombiner<E> implements Combiner<E>{
 
 
         void setInactive(){
-            status.set(INACTIVE);
+            status.setOpaque(INACTIVE);
         }
 
         boolean isInactive(){
@@ -50,8 +50,8 @@ public class UnboundCombiner<E> implements Combiner<E>{
         }
 
         void setActive(){
-            this.status.set(ACTIVE);
-        }
+            this.status.setOpaque(ACTIVE);
+        } //Set plain should actually work fine here, since set active is always piggybacked by an atomic swap to the head of the linked queue which guarantees eventual visibility
 
     }
 
@@ -85,7 +85,6 @@ public class UnboundCombiner<E> implements Combiner<E>{
     private int count;
     private final int threshold;
 
-    @SuppressWarnings("unchecked")
     public UnboundCombiner(E e) {
         this(e, 100);
     }
@@ -102,37 +101,34 @@ public class UnboundCombiner<E> implements Combiner<E>{
     @SuppressWarnings("unchecked")
     public <R>R combine(Action<E, R> action) {
         Node<E, R> node = (Node<E, R>) local.get();
-        var stateful = node.statefulAction;
-        stateful.setActionAndNullResult(action);
+        var stateful = node.statefulAction; //Stateful action reference is always visible due to final field visibility guarantees
+        stateful.setActionAndNullResult(action);  //Volatile write to action ensures result is always null before we enqueue
 
         if (stateful.isInactive()){
-            node.statefulAction.setActive();
-            Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node);
-            node.setTail(prevHead);
+            node.statefulAction.setActive(); //This is always visible and cant be reordered because of volatile write to head.getAndSet, setTail
+            Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node); //Ensure we enqueue as the head before we set the tail
+            node.setTail(prevHead); //Set the tail to node, there's a brief window where our tail is unreachable hence the null check
         }
 
-        int spins;
         while (stateful.action != null){
-            spins = 0;
             if (lock.tryLock()){
                 try {
                     scanCombineApply();
-                    if (stateful.action == null) return stateful.result;
-
+                    if(stateful.action == null) return stateful.result; //Return while we still hold the lock, ensure we check before we return in the case a combiner removed our node before we acquired the lock and became the combiner
                 }finally {
                     lock.unlock();
                 }
             }
 
-
+            int spins = 0;
             while (++spins < SPIN_COUNT) {
                 Thread.onSpinWait();
             }
 
             //Ensure to always check in the loop, just to prevent a situation where we think we're still active but we're not
             if (stateful.isInactive()){
-                node.statefulAction.setActive();
-                Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node);
+                node.statefulAction.setActive(); //This is always visible and cant be reordered because of volatile write to head.getAndSet, setTail
+                Node<E, R> prevHead = (Node<E, R>) head.getAndSet(node); //Ensure we enqueue as the head before we set the tail
                 node.setTail(prevHead);
             }
         }
@@ -142,18 +138,18 @@ public class UnboundCombiner<E> implements Combiner<E>{
 
     @SuppressWarnings("unchecked")
     void scanCombineApply(){
-        Node<E, Object> seenHead = (Node<E, Object>) this.head.get();
+        Node<E, Object> seenHead = (Node<E, Object>) this.head.get(); //Volatile read, also head should never be null, it should either be the dummy or some other node
         Node<E, Object> node = seenHead;
         ++count;
 
-        while (!node.equals(DUMMY)){
+        while (node != null && !node.equals(DUMMY)){ //Ensure node != null before we continue
             this.apply(node);
             node = node.tail;
         }
 
-
-        if (count >= threshold){
-            dequeFromHead(seenHead);
+        //We should never remove the dummy node, else NPE issues could occur
+        if (seenHead != null && count >= threshold){
+            dequeFromHead(seenHead); //Seen head can never be null
         }
 
     }
@@ -164,12 +160,13 @@ public class UnboundCombiner<E> implements Combiner<E>{
         StatefulAction<E, ?> statefulAction;
         while (current != null && !current.equals(DUMMY)){
             statefulAction = current.statefulAction;
-            if ((count - current.count) >= threshold && statefulAction.action == null){
+            if ((count - current.count) >= threshold){
                 head.setTail(current.tail);
                 current.tail = null;
                 current = head.tail;
                 statefulAction.setInactive(); //Ensure we set this as inactive after unlinking to prevent a situation in which this thread and the node owning threader overwrite their tail
-                //I.e the node owning thread, sees its inactive and, could try to set its tail to the current head , but the combiner overwrites it, now the node is unlinked forever while still being active, leading to issues
+                //i.e the node owning thread, sees its inactive and, could try to set its tail to the current head , but the combiner overwrites it, now the node is unlinked forever while still being active, leading to issues
+                //Set opaque is more enticing here because we dont need a fully volatile write, since the writes to the tails are volatile, preventing reordering
                 continue;
             }
 
