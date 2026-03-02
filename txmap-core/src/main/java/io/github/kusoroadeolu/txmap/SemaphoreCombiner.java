@@ -141,7 +141,7 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
             node.status.lazySet(Node.IS_COMBINER); //volatile write makes next and action eventually visible, though for next and action might not matter since the thread holding the node will swap their node out the next time they return
         }
 
-        node.status.setOpaque(Node.IS_COMBINER); //We just need visibility here, no need for ordering guarantees, since we honestly can't get reordered after lazy set
+        node.status.setOpaque(Node.IS_COMBINER); //We just need visibility here, no need for ordering guarantees, since we honestly can't get reordered due to "next" being volatile
         return stateful.result;
     }
 

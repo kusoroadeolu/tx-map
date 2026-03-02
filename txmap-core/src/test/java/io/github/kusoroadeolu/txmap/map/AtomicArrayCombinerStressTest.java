@@ -70,9 +70,7 @@ public class AtomicArrayCombinerStressTest {
         AtomicInteger counter = new AtomicInteger(0);
         AtomicArrayCombiner<AtomicInteger> combiner = new AtomicArrayCombiner<>(counter, COMBINER_CAP);
 
-        runThreads(THREADS, OPS_PER_THREAD, TIMEOUT_MS, () -> {
-            combiner.combine(c -> { c.incrementAndGet(); return null; });
-        });
+        runThreads(THREADS, OPS_PER_THREAD, TIMEOUT_MS, () -> combiner.combine(AtomicInteger::incrementAndGet));
 
         int expected = THREADS * OPS_PER_THREAD;
         if (counter.get() == expected) {
@@ -93,7 +91,7 @@ public class AtomicArrayCombinerStressTest {
 
         // Each thread increments and checks it got back a non-null result
         runThreads(THREADS, 1000, TIMEOUT_MS, () -> {
-            Integer result = combiner.combine(c -> c.incrementAndGet());
+            Integer result = combiner.combine(AtomicInteger::incrementAndGet);
             if (result == null) {
                 mismatch.set(true);
             }
@@ -170,7 +168,7 @@ public class AtomicArrayCombinerStressTest {
         for (int t = 0; t < threads; t++) {
             futures.add(pool.submit(() -> {
                 ready.countDown();
-                try { start.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                try { start.await(); } catch (InterruptedException _) {  }
                 for (int i = 0; i < opsPerThread; i++) task.run();
             }));
         }

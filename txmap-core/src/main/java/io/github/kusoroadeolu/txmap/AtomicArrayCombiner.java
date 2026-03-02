@@ -1,31 +1,45 @@
 package io.github.kusoroadeolu.txmap;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class AtomicArrayCombiner<E> implements Combiner<E> {
 
-    static class StatefulAction<E, R>{
+    public static class StatefulAction<E, R>{
         Action<E, R> action; //The action should be volatile to ensure the combining thread sees it
-        R result;
-        volatile boolean isApplied; //Volatile fence for the result type, this should always be written after the result is set
+        public R result;
+        public volatile boolean isApplied; //Volatile fence for the result type, this should always be written after the result is set
 
 
-        void apply(E e){
+        public StatefulAction(Action<E, R> action){
+            this.action = action;
+        }
+
+        StatefulAction(){
+            this(null);
+        }
+
+        public void apply(E e){
             this.result = this.action.apply(e);
             this.isApplied = true; //Volatile write ensures value of result is eventually visible, we might not need a full volatile write here, a set release(lazy set) write will be enough here
         }
 
 
+
     }
 
-    static class Node<E, R> {
-        private final StatefulAction<E, R> stateful;
+    public static class Node<E, R> {
+        public final StatefulAction<E, R> stateful;
 
         public Node() {
             this.stateful = new StatefulAction<>();
+        }
+
+        public Node(Action<E, R> action) {
+            this.stateful = new StatefulAction<>(action);
         }
 
     }
@@ -35,8 +49,7 @@ public class AtomicArrayCombiner<E> implements Combiner<E> {
     private final int capacity;
     private final E e;
     private final Lock lock;
-    private final AtomicInteger cellNum; //The cell in the array the thread's node will be assigned to
-    private int pointer; //The pointer to which the last combiner stopped at, i.e. if a combiner stopped at cell 2, the next combiner should start from cell 3
+    private final AtomicLong cellNum; //The cell in the array the thread's node will be assigned to
 
     public AtomicArrayCombiner(E e, int capacity) {
         this.local = ThreadLocal.withInitial(Node::new);
@@ -44,11 +57,11 @@ public class AtomicArrayCombiner<E> implements Combiner<E> {
         this.e = e;
         this.lock = new ReentrantLock();
         this.cells = new AtomicReferenceArray<>(this.capacity);
-        this.cellNum = new AtomicInteger(0);
+        this.cellNum = new AtomicLong(0);
     }
 
     public AtomicArrayCombiner(E e) {
-        this(e, 100);
+        this(e, 5);
     }
 
     @Override
@@ -58,24 +71,25 @@ public class AtomicArrayCombiner<E> implements Combiner<E> {
         node.stateful.action = action;
         node.stateful.isApplied = false; //Volatile write ensures the visibility of action before it is put into the arr
 
-        int cell = cellNum.getAndIncrement() % capacity; //Since our cells start at 0, we get then increment, to prevent the case in which we always leave the first cell empty
+        int cell = (int) (cellNum.getAndIncrement() % capacity); //Since our cells start at 0, we get then increment, to prevent the case in which we always leave the first cell empty
 
         //When that node is null, we try to cas, if we can't cas from null to our current cell, that means another thread has acquired the cell
         while (!cells.compareAndSet(cell, null, node)){
             Thread.yield();
         }
 
-        //Once we've acquired the lock, each thread should spin on it's node, until their value has been acquired
+        //Once we've acquired the lock, each thread should spin on its node, until their value has been acquired
         int maxSpins = 256;
         while (!node.stateful.isApplied){
             if (lock.tryLock()){ //Try the lock, if applied, we're the combiner
                 try {
                     this.scanCombineApply();
-                    if (node.stateful.isApplied) return node.stateful.result; //Volatile read ensures value of "result" is eventually visible
+                     return node.stateful.result;
                 }finally {
                     lock.unlock();
                 }
             }
+
 
             int spins = 0;
             while (++spins < maxSpins) Thread.onSpinWait();
@@ -86,25 +100,15 @@ public class AtomicArrayCombiner<E> implements Combiner<E> {
 
 
     void scanCombineApply(){
-        int ptr = this.pointer;
-        int count = 0;
-        Node<E, ?> curr;
-        /*
-         * Lets's quickly trace through my ptr logic starting from zero
-         * we have 2 nodes, and a late arriving node, we process those two nodes before the late arrival, our value should be 2 and not 1 or 3
-         * 0 -> apply then incr
-         * 1 -> apply then incr, after this we don't see the late arriving node, so we unbecome the combiner
-         * So our current value is 2, which is correct! Nice!
-         * */
-        while ((curr = cells.get(ptr)) != null && count < capacity){
-            curr.stateful.apply(e); //Volatile write from is applied
-            cells.setOpaque(ptr, null); //Then mark that we've applied the node
-            if (++ptr == capacity) ptr = 0; //If we've reached the threshold, reset to 0
-            ++count;
+        for (int i = 0; i < capacity; i++){
+            Node<E, ?> curr = cells.get(i);
+            if (curr != null){
+                curr.stateful.apply(e);
+                cells.setOpaque(i, null);
+            }
         }
-
-        this.pointer = ptr; //Always set the pointer back to ptr
     }
+
 
     @Override
     public E e() {

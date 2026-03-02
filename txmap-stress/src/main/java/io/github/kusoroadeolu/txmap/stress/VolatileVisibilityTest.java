@@ -1,13 +1,13 @@
 package io.github.kusoroadeolu.txmap.stress;
 
+import io.github.kusoroadeolu.txmap.AtomicArrayCombiner;
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.II_Result;
 
-import java.nio.ByteOrder;
+import javax.xml.crypto.NodeSetData;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
-import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE_INTERESTING;
+import static org.openjdk.jcstress.annotations.Expect.*;
 
 
 public class VolatileVisibilityTest {
@@ -85,30 +85,27 @@ public class VolatileVisibilityTest {
         }
     }
 
-    //This is a stress test to see if lazy set allows values after it to be reordered before it. Lazy set uses a set release fence to ensure no writes before it are reorder with writes after it, but let's see if writes after can be reordered before it
     @JCStressTest
-    @Outcome(id = {"1, 2", "-1, 2", "1, 0", "-1, 0"}, expect = ACCEPTABLE, desc = "Properly Ordered")
-    @Outcome(expect = ACCEPTABLE_INTERESTING, desc = "Reordered by compiler")
+    @Outcome(id = "1, 42", expect = ACCEPTABLE)
+    @Outcome(id = "0, 0", expect = ACCEPTABLE)
+    @Outcome(id = "1, 0", expect = FORBIDDEN) // saw isApplied but not result!
+    @Outcome(id = "0, 42", expect = ACCEPTABLE_INTERESTING)
     @State
-    public static class TestLazySetReordering{
-        private final AtomicInteger integer = new AtomicInteger(-1);  /*
-            tt, tf, ft, ff
-            12, 10, -12, -10
-        */
-        int num;
+    public static class ApplyVisibilityTest {
+
+        AtomicArrayCombiner.Node<Integer, Integer> node = new AtomicArrayCombiner.Node<>(a -> a);
 
         @Actor
-        public void actor(){
-            integer.lazySet(1);
-            num = 2;
+        public void writer() {
+            node.stateful.apply(42); // writes result then isApplied
         }
 
         @Actor
-        public void viewer(II_Result res){
-            res.r1 = integer.get();
-            res.r2 = num;
+        public void reader(II_Result r) {
+            r.r1 = node.stateful.isApplied ? 1 : 0;
+            Integer res = node.stateful.result;
+            r.r2 = res == null ? 0 : res; // is this visible when isApplied is true?
         }
 
     }
-
 }
