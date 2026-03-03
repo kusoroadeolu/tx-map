@@ -6,42 +6,6 @@ The main goal of this transactional map, is to integrate transactional and flat 
 You can find the standalone benchmarks for both combiners [here](txmap-benchmarks/combiner-bmh/combiner-bmh.json)
 
 ## Benchmarks for the transactional map using different combiners
-These benchmarks measure how throughput varies as the number of operations per transaction increases on 4 threads(cause this is an 8 core machine) and how throughput varies as number of threads increases with a cap of one operation per transaction
-
-## Unbound 
-Benchmark                                Mode  Cnt        Score         Error  Units
-TxMapCombinerBenchmark.opsPerTx_1       thrpt   10  6140572.974 ±  201579.050  ops/s
-TxMapCombinerBenchmark.opsPerTx_10      thrpt   10  1394195.276 ±   41433.308  ops/s
-TxMapCombinerBenchmark.opsPerTx_3       thrpt   10  3104740.060 ±  286448.307  ops/s
-TxMapCombinerBenchmark.opsPerTx_5       thrpt   10  2454691.826 ±  164267.778  ops/s
-TxMapCombinerBenchmark.threadScaling_1  thrpt   10  8483527.698 ±  686284.284  ops/s
-TxMapCombinerBenchmark.threadScaling_2  thrpt   10  7152377.008 ± 1016643.888  ops/s
-TxMapCombinerBenchmark.threadScaling_4  thrpt   10  5796094.413 ± 1243513.363  ops/s
-TxMapCombinerBenchmark.threadScaling_8  thrpt   10  4755282.344 ± 1775135.161  ops/s
-
-## Semaphore
-Benchmark                                Mode  Cnt        Score        Error  Units
-TxMapCombinerBenchmark.opsPerTx_1       thrpt   10  4977032.962 ± 727554.870  ops/s
-TxMapCombinerBenchmark.opsPerTx_10      thrpt   10  1354263.023 ± 235663.368  ops/s
-TxMapCombinerBenchmark.opsPerTx_3       thrpt   10  2932603.052 ± 123429.121  ops/s
-TxMapCombinerBenchmark.opsPerTx_5       thrpt   10  2340429.025 ± 133832.700  ops/s
-TxMapCombinerBenchmark.threadScaling_1  thrpt   10  8501070.759 ± 576502.162  ops/s
-TxMapCombinerBenchmark.threadScaling_2  thrpt   10  6585958.748 ± 508671.639  ops/s
-TxMapCombinerBenchmark.threadScaling_4  thrpt   10  5176171.714 ± 132479.762  ops/s
-TxMapCombinerBenchmark.threadScaling_8  thrpt   10  3680776.182 ± 135464.117  ops/s
-
-## Array
-Benchmark                                Mode  Cnt        Score        Error  Units
-TxMapCombinerBenchmark.opsPerTx_1        thrpt   10   3733726.925 ± 1396970.425  ops/s
-TxMapCombinerBenchmark.opsPerTx_10       thrpt   10   1289441.741 ±   73968.744  ops/s
-TxMapCombinerBenchmark.opsPerTx_3        thrpt   10   2795601.486 ±   99012.415  ops/s
-TxMapCombinerBenchmark.opsPerTx_5        thrpt   10   2122477.873 ±  468017.197  ops/s
-TxMapCombinerBenchmark.threadScaling_1   thrpt   10   6455423.282 ± 1726579.109  ops/s
-TxMapCombinerBenchmark.threadScaling_2   thrpt   10   5712656.338 ±  625715.190  ops/s
-TxMapCombinerBenchmark.threadScaling_4   thrpt   10   4656871.168 ±   85689.488  ops/s
-TxMapCombinerBenchmark.threadScaling_8   thrpt   10   3727382.982 ±   54456.330  ops/s
-
-
 
 ## Raw combiner benchmarks, with varying idle strategies
 - Black hole consume cpu(with 10 tokens)
@@ -95,3 +59,41 @@ CombinerBenchmark.combiner_8threads             sem    spin-loop       500  thrp
 Benchmark                                    (tokens)   Mode  Cnt       Score       Error  Units
 SynchronizedCombinerBench.combiner_4threads       500  thrpt   10  536954.411 ± 30708.466  ops/s
 SynchronizedCombinerBench.combiner_8threads       500  thrpt   10  503554.751 ± 36744.837  ops/s
+
+
+
+These benchmarks measure how throughput varies as the number of operations per transaction increases on 4 threads(cause this is an 8 core machine) and how throughput varies as number of threads increases with a cap of one operation per transaction
+Txmap bench
+Benchmark                               (combinerType)   Mode  Cnt        Score         Error  Units
+TxMapCombinerBenchmark.opsPerTx_1                array  thrpt   10  4737779.240 ±  537221.574  ops/s
+TxMapCombinerBenchmark.opsPerTx_1              unbound  thrpt   10  6002045.294 ±  329858.863  ops/s
+TxMapCombinerBenchmark.opsPerTx_1                  sem  thrpt   10  5179001.530 ±  135290.294  ops/s
+TxMapCombinerBenchmark.opsPerTx_1                 sync  thrpt   10  6217976.352 ±  231458.470  ops/s
+TxMapCombinerBenchmark.opsPerTx_10               array  thrpt   10  1416871.309 ±   91271.762  ops/s
+TxMapCombinerBenchmark.opsPerTx_10             unbound  thrpt   10  1461425.364 ±  147014.415  ops/s
+TxMapCombinerBenchmark.opsPerTx_10                 sem  thrpt   10  1453856.993 ±   31773.948  ops/s
+TxMapCombinerBenchmark.opsPerTx_10                sync  thrpt   10  1190591.304 ±   27565.546  ops/s
+TxMapCombinerBenchmark.opsPerTx_3                array  thrpt   10  3278679.378 ±  177817.201  ops/s
+TxMapCombinerBenchmark.opsPerTx_3              unbound  thrpt   10  3555424.796 ±  122397.442  ops/s
+TxMapCombinerBenchmark.opsPerTx_3                  sem  thrpt   10  3304542.593 ±  299599.886  ops/s
+TxMapCombinerBenchmark.opsPerTx_3                 sync  thrpt   10  3154468.462 ±  544692.343  ops/s
+TxMapCombinerBenchmark.opsPerTx_5                array  thrpt   10  2664212.866 ±   70002.321  ops/s
+TxMapCombinerBenchmark.opsPerTx_5              unbound  thrpt   10  2722594.607 ±  222627.920  ops/s
+TxMapCombinerBenchmark.opsPerTx_5                  sem  thrpt   10  2588520.914 ±  459886.853  ops/s
+TxMapCombinerBenchmark.opsPerTx_5                 sync  thrpt   10  2296770.481 ±  257240.572  ops/s
+TxMapCombinerBenchmark.threadScaling_1           array  thrpt   10  6929699.117 ±  307262.672  ops/s
+TxMapCombinerBenchmark.threadScaling_1         unbound  thrpt   10  9033239.543 ±  713758.015  ops/s
+TxMapCombinerBenchmark.threadScaling_1             sem  thrpt   10  6915508.317 ± 2958481.297  ops/s
+TxMapCombinerBenchmark.threadScaling_1            sync  thrpt   10  6382654.957 ± 1991089.346  ops/s
+TxMapCombinerBenchmark.threadScaling_2           array  thrpt   10  5058250.884 ±  544102.028  ops/s
+TxMapCombinerBenchmark.threadScaling_2         unbound  thrpt   10  6678419.211 ±  945951.390  ops/s
+TxMapCombinerBenchmark.threadScaling_2             sem  thrpt   10  4813470.532 ±  894455.392  ops/s
+TxMapCombinerBenchmark.threadScaling_2            sync  thrpt   10  4809004.123 ±  280161.792  ops/s
+TxMapCombinerBenchmark.threadScaling_4           array  thrpt   10  4409963.080 ±  157230.285  ops/s
+TxMapCombinerBenchmark.threadScaling_4         unbound  thrpt   10  5382402.551 ±  202581.589  ops/s
+TxMapCombinerBenchmark.threadScaling_4             sem  thrpt   10  4680105.067 ±  112318.133  ops/s
+TxMapCombinerBenchmark.threadScaling_4            sync  thrpt   10  5553577.128 ±  712185.610  ops/s
+TxMapCombinerBenchmark.threadScaling_8           array  thrpt   10  3888263.499 ±  584979.658  ops/s
+TxMapCombinerBenchmark.threadScaling_8         unbound  thrpt   10  4328514.646 ±  190884.074  ops/s
+TxMapCombinerBenchmark.threadScaling_8             sem  thrpt   10  4149041.185 ±   47802.527  ops/s
+TxMapCombinerBenchmark.threadScaling_8            sync  thrpt   10  5722148.204 ±  306634.232  ops/s

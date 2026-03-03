@@ -131,14 +131,9 @@ public class UnboundCombiner<E> implements Combiner<E>{
         enqueueIfInactive(node);
 
         int idleCount = 0;
-        int spins = 0;
         assert stateful.action != null : "Action must not be null";
         while (stateful.action != null){
-//            if (spins++ >= 1_000_000) {
-//                // dump node state here
-//                System.out.println("HUNG - action: " + action + " ,status: " + stateful.status + " ,age: " + node.age + " ,in queue: " + scanQueue(node, this.head.get()) + " ,node: " + node + ", next: " + node.next);
-//                break; // or throw, or park indefinitely so you can attach a debugger
-//            }
+
             if (lock.tryLock()){
                 try {
                     scanCombineApply();

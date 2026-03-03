@@ -9,25 +9,32 @@ import java.util.Map;
 
 public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
     private final Map<K, V> map;
+    private final Combiner.IdleStrategy idleStrategy;
     private final Combiner<Map<K, V>> combiner;
 
-    public FlatCombinedTxMap() {
-        this(CombinerType.UNBOUND);
+    public FlatCombinedTxMap(CombinerType type) {
+        this(type, Combiner.IdleStrategy.busySpin());
     }
 
-    public FlatCombinedTxMap(CombinerType type){
+    public FlatCombinedTxMap() {
+        this(CombinerType.UNBOUND, Combiner.IdleStrategy.busySpin());
+    }
+
+    public FlatCombinedTxMap(CombinerType type, Combiner.IdleStrategy strategy){
         this.map = new HashMap<>();
         combiner = switch (type){
             case ARRAY -> new AtomicArrayCombiner<>(map);
             case UNBOUND -> new UnboundCombiner<>(map);
             case SEMAPHORE -> new SemaphoreCombiner<>(map);
+            case SYNC -> new SynchronizedCombiner<>(map);
         };
+        this.idleStrategy = strategy;
     }
 
 
     @Override
     public MapTransaction<K, V> beginTx() {
-        return new CombinedMapTransaction<>(this);
+        return new CombinedMapTransaction<>(this, idleStrategy);
     }
 
     public Map<K, V> map(){
@@ -40,11 +47,13 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
         private final Map<K, V> map;
         private TransactionState state = TransactionState.SCHEDULED;
         private final Combiner<Map<K, V>> combiner;
+        private final Combiner.IdleStrategy strategy;
 
-        public CombinedMapTransaction(FlatCombinedTxMap<K, V> txMap) {
+        public CombinedMapTransaction(FlatCombinedTxMap<K, V> txMap, Combiner.IdleStrategy strategy) {
             this.actions = new ArrayList<>();
             this.map = txMap.map;
             this.combiner = txMap.combiner;
+            this.strategy = strategy;
         }
 
         @Override
@@ -101,7 +110,7 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
                     fw.fv().complete(Option.ofNullable(result));
                 }
                 return null;
-            });
+            }, strategy);
             actions.clear();
             state = TransactionState.COMMITTED;
         }

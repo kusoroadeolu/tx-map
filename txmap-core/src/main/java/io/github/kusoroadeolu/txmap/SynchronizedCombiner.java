@@ -1,12 +1,15 @@
 package io.github.kusoroadeolu.txmap;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 //Not really a combiner, just here to test if combiners actually amortize synchronization overhead
 public class SynchronizedCombiner<E> implements Combiner<E>{
-    private final Object lock;
+    private final ReentrantLock lock;
+    private Object result;
     private final E e;
 
     public SynchronizedCombiner(E e) {
-        this.lock = new Object();
+        this.lock = new ReentrantLock();
         this.e = e;
     }
 
@@ -16,9 +19,14 @@ public class SynchronizedCombiner<E> implements Combiner<E>{
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <R> R combine(Action<E, R> action, IdleStrategy strategy) {
-        synchronized (lock){
-            return action.apply(e);
+        this.lock.lock();
+        try {
+            result = action.apply(e);
+            return (R) result;
+        }finally {
+            this.lock.unlock();
         }
     }
 

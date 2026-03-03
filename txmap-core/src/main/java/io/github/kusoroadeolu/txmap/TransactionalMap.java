@@ -8,6 +8,10 @@ public interface TransactionalMap<K, V> {
         return new FlatCombinedTxMap<>();
     }
 
+    static <K, V>TransactionalMap<K, V> createFlatCombined(CombinerType type, Combiner.IdleStrategy strategy){
+        return new FlatCombinedTxMap<>(type, strategy);
+    }
+
     static <K, V>TransactionalMap<K, V> createFlatCombined(CombinerType type){
         return new FlatCombinedTxMap<>(type);
     }
