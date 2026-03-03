@@ -7,5 +7,5 @@ With these changes and the introduction of my atomic array combiner(which even w
 
 **TODO:** Investigate, why did a volatile read after the combiner scanned the pub queue/arr, while still holding the lock, fix the issue where threads hung on their condition indefinitely
 
-**TODO Completed:** Changed the logic from pointer tracking to just rescanning the entire array when a thread becomes the combiner, looks like the previous issue wasn't actually a memory visibility issue(thankfully), rather an issue where combiners couldnt progress after hitting a null cell, because the cell never got filled
+**TODO Completed:** Changed the logic from pointer tracking to just rescanning the entire array when a thread becomes the combiner, looks like the previous issue wasn't actually a memory visibility issue(thankfully), rather an issue where combiners couldn't progress after hitting a null cell, because the cell never got filled
 

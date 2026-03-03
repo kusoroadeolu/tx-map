@@ -5,7 +5,7 @@ import java.util.concurrent.locks.LockSupport;
 public interface Combiner<E> {
     <R>R combine(Action<E, R> action);
 
-    //<R>R combine(Action<E, R> action, IdleStrategy strategy);
+    <R>R combine(Action<E, R> action, IdleStrategy strategy);
 
     E e();
 
@@ -35,6 +35,17 @@ public interface Combiner<E> {
                 } else {
                     LockSupport.parkNanos(1);
                 }
+                return idleCount;
+            };
+        }
+
+        static IdleStrategy spinLoop(int maxSpins) {
+            return idleCount -> {
+                    int i = 0;
+                    while (i < maxSpins) {
+                        i++;
+                        Thread.onSpinWait();
+                    }
                 return idleCount;
             };
         }

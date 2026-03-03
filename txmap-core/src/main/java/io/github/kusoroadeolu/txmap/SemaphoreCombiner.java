@@ -4,6 +4,8 @@ package io.github.kusoroadeolu.txmap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.github.kusoroadeolu.txmap.Combiner.IdleStrategy.busySpin;
+
 
 //Rather than cleaning up old nodes, this combiner reuses nodes, it assumes a max of N threads using this combiner
 /* Happens before guarantees
@@ -100,9 +102,14 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
 
 
     private int comNo;
-    @SuppressWarnings("unchecked")
     @Override
     public <R>R combine(Action<E, R> action) {
+        return combine(action, busySpin());
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <R> R combine(Action<E, R> action, IdleStrategy strategy) {
         //Get our thread local node, reset it and make it not the combiner
         var newTail = (Node<E, R>) local.get();
         newTail.stateful.isApplied = false;
@@ -118,11 +125,9 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
         var stateful = curNode.stateful;
 
         //While we aren't the combiner, for instance a combiner has already claimed the combining node, wait, otherwise, we're the combiner
+        int idleCount = 0;
         while (curNode.status.get() == Node.NOT_COMBINER){
-            int spins = 0;
-            while (++spins < SPIN_COUNT) {
-                Thread.onSpinWait();
-            }
+            idleCount = strategy.idle(idleCount);
         }
 
         if (stateful.isApplied) return stateful.result;
@@ -136,15 +141,16 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
         for (int i = 0; i < threshold && (next = node.next) != null; ++i, node = next){
             node.stateful.apply(e);
             node.stateful.action = null;
-            node.next = null; //Break the link,
+            node.next = null;
             //After we set each node as the combiner, remember that at the beginning, each node always resets their combining status, so multiple nodes cannot be the combiner, so when a thread gets the current atomic node, our
             node.status.lazySet(Node.IS_COMBINER); //volatile write makes next and action eventually visible, though for next and action might not matter since the thread holding the node will swap their node out the next time they return
         }
 
-        node.status.setOpaque(Node.IS_COMBINER); //We just need visibility here, no need for ordering guarantees, since we honestly can't get reordered due to "next" being volatile
+        node.status.set(Node.IS_COMBINER); //Ensure set is not reordered after set release
+        //Note that we stop until the last node, meaning we dont apply the action of the tail of the pub list
+
         return stateful.result;
     }
-
 
     @Override
     public E e(){

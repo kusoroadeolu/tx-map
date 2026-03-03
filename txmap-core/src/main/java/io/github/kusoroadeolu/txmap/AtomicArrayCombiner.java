@@ -6,6 +6,8 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static io.github.kusoroadeolu.txmap.Combiner.IdleStrategy.busySpin;
+
 public class AtomicArrayCombiner<E> implements Combiner<E> {
 
     public static class StatefulAction<E, R>{
@@ -65,8 +67,13 @@ public class AtomicArrayCombiner<E> implements Combiner<E> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public <R> R combine(Action<E, R> action) {
+        return combine(action, busySpin());
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <R> R combine(Action<E, R> action, IdleStrategy strategy) {
         Node<E, R> node = (Node<E, R>) local.get();
         node.stateful.action = action;
         node.stateful.isApplied = false; //Volatile write ensures the visibility of action before it is put into the arr
@@ -79,25 +86,22 @@ public class AtomicArrayCombiner<E> implements Combiner<E> {
         }
 
         //Once we've acquired the lock, each thread should spin on its node, until their value has been acquired
-        int maxSpins = 256;
+        int idleCount = 0;
         while (!node.stateful.isApplied){
             if (lock.tryLock()){ //Try the lock, if applied, we're the combiner
                 try {
                     this.scanCombineApply();
-                     return node.stateful.result;
+                    return node.stateful.result;
                 }finally {
                     lock.unlock();
                 }
             }
 
-
-            int spins = 0;
-            while (++spins < maxSpins) Thread.onSpinWait();
+            idleCount = strategy.idle(idleCount);
         }
 
         return node.stateful.result;
     }
-
 
     void scanCombineApply(){
         for (int i = 0; i < capacity; i++){

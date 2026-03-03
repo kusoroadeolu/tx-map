@@ -40,3 +40,58 @@ TxMapCombinerBenchmark.threadScaling_1   thrpt   10   6455423.282 ± 1726579.109
 TxMapCombinerBenchmark.threadScaling_2   thrpt   10   5712656.338 ±  625715.190  ops/s
 TxMapCombinerBenchmark.threadScaling_4   thrpt   10   4656871.168 ±   85689.488  ops/s
 TxMapCombinerBenchmark.threadScaling_8   thrpt   10   3727382.982 ±   54456.330  ops/s
+
+
+
+## Raw combiner benchmarks, with varying idle strategies
+- Black hole consume cpu(with 10 tokens)
+
+Benchmark                            (combinerType)  (idleStrat)   Mode  Cnt         Score         Error  Units
+CombinerBenchmark.combiner_4threads           array         spin  thrpt   10   4940902.888 ±  364426.986  ops/s
+CombinerBenchmark.combiner_4threads           array         park  thrpt   10   3003354.235 ±  980447.156  ops/s
+CombinerBenchmark.combiner_4threads           array        yield  thrpt   10   4134034.114 ± 1286555.947  ops/s
+CombinerBenchmark.combiner_4threads           array    spin-loop  thrpt   10   3051151.524 ±  713353.553  ops/s
+CombinerBenchmark.combiner_4threads         unbound         spin  thrpt   10   5341276.898 ± 1006531.422  ops/s
+CombinerBenchmark.combiner_4threads         unbound         park  thrpt   10  10424327.575 ± 1069039.612  ops/s
+CombinerBenchmark.combiner_4threads         unbound        yield  thrpt   10   5593392.621 ± 1430692.557  ops/s
+CombinerBenchmark.combiner_4threads         unbound    spin-loop  thrpt   10  11553378.426 ±  632749.613  ops/s
+CombinerBenchmark.combiner_4threads             sem         spin  thrpt   10   4766121.908 ±  246506.884  ops/s
+CombinerBenchmark.combiner_4threads             sem         park  thrpt   10   8609374.243 ±  274982.970  ops/s
+CombinerBenchmark.combiner_4threads             sem        yield  thrpt   10   4643067.639 ±  291553.856  ops/s
+CombinerBenchmark.combiner_4threads             sem    spin-loop  thrpt   10   8916522.915 ±  382107.834  ops/s
+
+### Baseline
+Benchmark                                     Mode  Cnt         Score        Error  Units
+SynchronizedCombinerBench.combiner_4threads  thrpt   10  17515595.325 ± 910069.618  ops/s
+
+## More Threads/Higher token count
+Benchmark                            (combinerType)  (idleStrat)  (tokens)   Mode  Cnt        Score        Error  Units
+CombinerBenchmark.combiner_4threads           array         spin       500  thrpt   10   628728.508 ±  29221.238  ops/s
+CombinerBenchmark.combiner_4threads           array         park       500  thrpt   10   904079.672 ±  38689.143  ops/s
+CombinerBenchmark.combiner_4threads           array        yield       500  thrpt   10   614835.002 ±  27355.834  ops/s
+CombinerBenchmark.combiner_4threads           array    spin-loop       500  thrpt   10   687663.741 ±  41021.797  ops/s
+CombinerBenchmark.combiner_4threads         unbound         spin       500  thrpt   10   611607.834 ±  25861.686  ops/s
+CombinerBenchmark.combiner_4threads         unbound         park       500  thrpt   10  1248335.698 ± 652469.407  ops/s
+CombinerBenchmark.combiner_4threads         unbound        yield       500  thrpt   10   649049.601 ±  49499.473  ops/s
+CombinerBenchmark.combiner_4threads         unbound    spin-loop       500  thrpt   10   787298.705 ±  42212.581  ops/s
+CombinerBenchmark.combiner_4threads             sem         spin       500  thrpt   10   608923.375 ±  62442.940  ops/s
+CombinerBenchmark.combiner_4threads             sem         park       500  thrpt   10  1017153.565 ±  73932.567  ops/s
+CombinerBenchmark.combiner_4threads             sem        yield       500  thrpt   10   590685.557 ±  52489.373  ops/s
+CombinerBenchmark.combiner_4threads             sem    spin-loop       500  thrpt   10   752594.452 ±  85483.183  ops/s
+
+CombinerBenchmark.combiner_8threads           array         spin       500  thrpt   10   500721.652 ±  21420.571  ops/s
+CombinerBenchmark.combiner_8threads           array         park       500  thrpt   10   768761.789 ± 166924.699  ops/s
+CombinerBenchmark.combiner_8threads           array        yield       500  thrpt   10   462076.420 ±  16345.871  ops/s
+CombinerBenchmark.combiner_8threads           array    spin-loop       500  thrpt   10   677144.723 ±  17975.015  ops/s
+CombinerBenchmark.combiner_8threads         unbound         spin       500  thrpt   10   507005.600 ±  23656.677  ops/s
+CombinerBenchmark.combiner_8threads         unbound         park       500  thrpt   10  1032196.219 ± 483196.423  ops/s
+CombinerBenchmark.combiner_8threads         unbound        yield       500  thrpt   10   452305.365 ±  16989.337  ops/s
+CombinerBenchmark.combiner_8threads         unbound    spin-loop       500  thrpt   10   708503.064 ±  49134.413  ops/s
+CombinerBenchmark.combiner_8threads             sem         spin       500  thrpt   10   485206.218 ±  44766.243  ops/s
+CombinerBenchmark.combiner_8threads             sem         park       500  thrpt   10   981706.433 ± 176670.040  ops/s
+CombinerBenchmark.combiner_8threads             sem        yield       500  thrpt   10   461104.951 ±  22820.683  ops/s
+CombinerBenchmark.combiner_8threads             sem    spin-loop       500  thrpt   10   715079.096 ±  10394.087  ops/s
+
+Benchmark                                    (tokens)   Mode  Cnt       Score       Error  Units
+SynchronizedCombinerBench.combiner_4threads       500  thrpt   10  536954.411 ± 30708.466  ops/s
+SynchronizedCombinerBench.combiner_8threads       500  thrpt   10  503554.751 ± 36744.837  ops/s

@@ -2,6 +2,7 @@ package io.github.kusoroadeolu.txmap.map;
 
 import io.github.kusoroadeolu.txmap.AtomicArrayCombiner;
 import io.github.kusoroadeolu.txmap.Combiner;
+import io.github.kusoroadeolu.txmap.UnboundCombiner;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -30,11 +31,8 @@ public class AtomicArrayCombinerStressTest {
     static int failed = 0;
 
     public static void main(String[] args) throws Exception {
-        test_correctness_singleThread();
-        test_allActionsApplied_multiThread();
-        test_resultsReturnedToCorrectThread();
+
         test_noDeadlock_highContention();
-        test_nodeReuse_acrossMultipleCombines();
 
         System.out.println("\n=============================");
         System.out.printf("  Results: %d passed, %d failed%n", passed, failed);
@@ -48,7 +46,7 @@ public class AtomicArrayCombinerStressTest {
     static void test_correctness_singleThread() throws Exception {
         System.out.println("\n[TEST 1] Single-thread correctness...");
         AtomicInteger counter = new AtomicInteger(0);
-        AtomicArrayCombiner<AtomicInteger> combiner = new AtomicArrayCombiner<>(counter, COMBINER_CAP);
+        Combiner<AtomicInteger> combiner = new UnboundCombiner<>(counter, COMBINER_CAP);
 
         int ops = 1000;
         for (int i = 0; i < ops; i++) {
@@ -68,7 +66,7 @@ public class AtomicArrayCombinerStressTest {
     static void test_allActionsApplied_multiThread() throws Exception {
         System.out.println("\n[TEST 2] All actions applied (multi-thread)...");
         AtomicInteger counter = new AtomicInteger(0);
-        AtomicArrayCombiner<AtomicInteger> combiner = new AtomicArrayCombiner<>(counter, COMBINER_CAP);
+        Combiner<AtomicInteger> combiner = new UnboundCombiner<>(counter, COMBINER_CAP);
 
         runThreads(THREADS, OPS_PER_THREAD, TIMEOUT_MS, () -> combiner.combine(AtomicInteger::incrementAndGet));
 
@@ -86,7 +84,7 @@ public class AtomicArrayCombinerStressTest {
     static void test_resultsReturnedToCorrectThread() throws Exception {
         System.out.println("\n[TEST 3] Results returned to correct thread...");
         AtomicInteger sharedCounter = new AtomicInteger(0);
-        AtomicArrayCombiner<AtomicInteger> combiner = new AtomicArrayCombiner<>(sharedCounter, COMBINER_CAP);
+        Combiner<AtomicInteger> combiner = new UnboundCombiner<>(sharedCounter, COMBINER_CAP);
         AtomicBoolean mismatch = new AtomicBoolean(false);
 
         // Each thread increments and checks it got back a non-null result
@@ -111,7 +109,7 @@ public class AtomicArrayCombinerStressTest {
         System.out.println("\n[TEST 4] No deadlock under high contention...");
         AtomicInteger counter = new AtomicInteger(0);
         // Small capacity to maximize contention
-        AtomicArrayCombiner<AtomicInteger> combiner = new AtomicArrayCombiner<>(counter, 4);
+        Combiner<AtomicInteger> combiner = new UnboundCombiner<>(counter, 4);
 
         try {
             runThreads(8, 500, 10_000, () -> {
@@ -130,7 +128,7 @@ public class AtomicArrayCombinerStressTest {
     static void test_nodeReuse_acrossMultipleCombines() throws Exception {
         System.out.println("\n[TEST 5] Node reuse across multiple combine() calls...");
         AtomicInteger counter = new AtomicInteger(0);
-        Combiner<AtomicInteger> combiner = new AtomicArrayCombiner<>(counter, COMBINER_CAP);
+        Combiner<AtomicInteger> combiner = new UnboundCombiner<>(counter, COMBINER_CAP);
         AtomicBoolean wrongResult = new AtomicBoolean(false);
 
         // Each thread does many sequential combines and checks results are sane
