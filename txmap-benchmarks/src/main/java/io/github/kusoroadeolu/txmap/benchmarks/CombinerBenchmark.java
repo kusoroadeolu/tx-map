@@ -64,7 +64,6 @@ public class CombinerBenchmark {
     }
 
 
-
     static class HeavyAdder {
         private final int tokens;
         long a;

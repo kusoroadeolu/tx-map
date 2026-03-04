@@ -41,14 +41,6 @@ public class SynchronizedCombinerBench {
     }
 
 
-    static class IntAdder{
-        int a = 0;
-
-        int incrementAndGet(){
-            return ++a;
-        }
-    }
-
     static class HeavyAdder {
         private final int tokens;
         long a;

@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(2)
-public class TxMapCombinerBenchmark {
+public class SerializedTxMapCombinerBenchmark {
 
     private static final String[] KEYS = {"key-0", "key-1", "key-2", "key-3"};
 

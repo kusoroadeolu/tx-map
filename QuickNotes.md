@@ -27,5 +27,23 @@ Therefore, `spin-loop` is chosen as our default idle strategy for other benchmar
 ### Measuring serialized combined map across different impl strats
 Here we measure how throughput varies as the number of operations per transaction increases on 4 threads(cause this is an 8 core machine) and how throughput varies as number of threads increases with a cap of one operation per transaction. We use a synchronized combiner as our baseline
 
-#### Ops per transaction
-The thrpt for the synchronized combiner at one operation per transaction 
+#### Ops per transaction (Measured at 4 threads steady)
+At one operation per transaction, the thrpt for the sync combiner surpasses other combiners by ~20% to ~31% however as ops per tx increases to 10, the combiners thrpt drops to ~1.4Mops/s while the sync combiner drops to ~1.1Mops/s around a ~22% gap between the sync combiner and the other combiners
+The batching and handoff mechanisms of the combiners amortizes(reduces) the combining overhead over multiple operations while the sync combiner has to pay the cost of obtaining a lock per transaction 
+
+#### Thrpt as num of transactions increases(Measured with 2 ops per tx)
+At one thread(under low contention), unbound combiner shows the highest thrpt at ~8.5M ops/s(though with a high variance of 800K ops/s) with sync showing the lowest at 6.3M ops/s. Array and Node cycling combiner both show ~6.9M ops/s under low contention.
+At 8 threads(under high contention), sync combiner shows the highest thrpt at 5.7Mops/s with the array combiner showing the lowest thrpt overall at 3.8M ops/s. Both the Node cycling and unbound combiner degrade gracefully to 4.1M ops/s and 4.3M ops/s respectively;
+Worth noting that a simple lock under high contention benefits from the JVM's lock coarsening and biased locking optimizations, whereas the combining overhead of the other combiners doesn't get those same benefits.
+
+
+### Measuring segmented combined map across different impl strats
+Here we're measuring if segmenting combiners per key improves thrpt, regardless of the combiner type, though that might play a factor, hence we're testing all combiners for this
+Using a synchronized combiner(basically a locked) combiner per key as a baseline
+
+#### Ops per transaction (Measured at 4 threads steady)
+At one op per tx, compared to the serialized maps, no impl manages to break past the 3M ops/s threshold, and the thrpt only gets worse at 10 ops per tx as the best impl only manages to barely scrape ~800k ops/s
+
+#### Thrpt as num of transactions increases(Measured with 2 ops per tx)
+Under low contention, compared to the serialized maps whose best impl has a thrpt of ~8M ops/s, no impl manages to break past 5M ops/s , and the thrpt only get worse under high contention as the best impl only manages to barely scrape ~2M ops/s while the best serialized combined map has 5M ops/s.
+The per-key batching benefit is outweighed by the overhead of multiple combine calls per transaction, since fewer operations share each serialization point compared to the fully serialized map. Also, the flat combined map wraps all ops in a single `combine()` call paying the overhead once per transaction, while the segmented map pays it once per unique key per transaction.

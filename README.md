@@ -154,7 +154,7 @@ SegmentedCombinedTxMapBench.threadScaling_8         unbound  thrpt   10  2922649
 SegmentedCombinedTxMapBench.threadScaling_8             nc  thrpt   10  2508414.624 ± 118512.164  ops/s
 SegmentedCombinedTxMapBench.threadScaling_8            sync  thrpt   10  4205848.153 ± 267646.789  ops/s
 
-## Grouped by key i.e. we combine operations per key 
+## Grouped by key i.e. we combine operations per key , submitted to the combiner as one operation per key
 Benchmark                                    (combinerType)   Mode  Cnt        Score        Error  Units
 SegmentedCombinedTxMapBench.opsPerTx_1                array  thrpt   10  2232550.962 ±  45866.551  ops/s
 SegmentedCombinedTxMapBench.opsPerTx_1              unbound  thrpt   10  2606415.859 ± 104647.493  ops/s
