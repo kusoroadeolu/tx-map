@@ -15,8 +15,6 @@ import java.util.concurrent.TimeUnit;
 @Fork(value = 2)
 public class SynchronizedCombinerBench {
 
-    private final static int MAX_SPINS = 256;
-
     private Combiner<HeavyAdder> combiner;
 
     @Param({"500"})

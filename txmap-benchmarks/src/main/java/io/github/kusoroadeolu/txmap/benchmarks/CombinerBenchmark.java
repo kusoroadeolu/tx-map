@@ -3,10 +3,6 @@ package io.github.kusoroadeolu.txmap.benchmarks;
 import io.github.kusoroadeolu.txmap.*;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.concurrent.TimeUnit;
 
@@ -23,7 +19,7 @@ public class CombinerBenchmark {
     private Combiner<HeavyAdder> combiner;
     private Combiner.IdleStrategy idleStrategy;
 
-    @Param({"array", "unbound", "sem"})
+    @Param({"array", "unbound", "nc"})
     private String combinerType;
 
     @Param({"spin", "park", "yield", "spin-loop"})
@@ -48,7 +44,7 @@ public class CombinerBenchmark {
         combiner = switch (combinerType) {
             case "array" -> new AtomicArrayCombiner<>(new HeavyAdder(tokens), cap);
             case "unbound" -> new UnboundCombiner<>(new HeavyAdder(tokens), cap);
-            case "sem" -> new SemaphoreCombiner<>(new HeavyAdder(tokens), cap);
+            case "nc" -> new NodeCyclingCombiner<>(new HeavyAdder(tokens), cap);
             default -> throw new IllegalStateException("Unexpected value: " + combinerType);
         };
     }

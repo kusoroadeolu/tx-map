@@ -1,5 +1,5 @@
 package io.github.kusoroadeolu.txmap;
 
 public enum CombinerType {
-    ARRAY, SEMAPHORE, UNBOUND, SYNC
+    ARRAY, NODE_CYCLING, UNBOUND, SYNC
 }

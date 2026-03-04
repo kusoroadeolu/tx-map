@@ -15,7 +15,7 @@ import static io.github.kusoroadeolu.txmap.Combiner.IdleStrategy.busySpin;
 * The setting of each node as the combiner happens before
 *
 * */
-public class SemaphoreCombiner<E> implements Combiner<E>{
+public class NodeCyclingCombiner<E> implements Combiner<E>{
 
 
     static class StatefulAction<E, R>{
@@ -75,11 +75,11 @@ public class SemaphoreCombiner<E> implements Combiner<E>{
     * /T1
     * Thread 2 Node -> Node
     * */
-    public SemaphoreCombiner(E e) {
+    public NodeCyclingCombiner(E e) {
         this(e, 100);
     }
 
-    public SemaphoreCombiner(E e, int threshold) {
+    public NodeCyclingCombiner(E e, int threshold) {
         this.local = ThreadLocal.withInitial(Node::new);
         this.tail = new AtomicReference<>(new Node<>(Node.IS_COMBINER));
         this.e = e;

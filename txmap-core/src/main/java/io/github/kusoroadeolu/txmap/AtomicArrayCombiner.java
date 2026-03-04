@@ -63,7 +63,7 @@ public class AtomicArrayCombiner<E> implements Combiner<E> {
     }
 
     public AtomicArrayCombiner(E e) {
-        this(e, 5);
+        this(e, 100);
     }
 
     @Override

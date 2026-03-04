@@ -1,33 +1,32 @@
 package io.github.kusoroadeolu.txmap.benchmarks;
 
-import io.github.kusoroadeolu.txmap.*;
+import io.github.kusoroadeolu.txmap.Combiner;
+import io.github.kusoroadeolu.txmap.CombinerType;
+import io.github.kusoroadeolu.txmap.FutureValue;
+import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.concurrent.TimeUnit;
-
-/**
- * Benchmark written by Claude
- * Verified by me
- * @author Kusoro Adeolu
- * */
-
 //Using spin loop strat as our default because from the raw combiner thrpt bench, it showed consistent throughput while having the best variance across all combiner types
+// Here we're testing if segmenting combiners per key improves thrpt while having a good variance of ~11-12%, rather than the actual thrpt of each combiner per key matters, though that might play a factor, hence we're testing all combiners with this
+// Using a synchronized combiner(basically a locked) combiner per key as a baseline
 
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
-@Fork(2)
-public class TxMapCombinerBenchmark {
-
+@Fork(value = 2)
+public class SegmentedCombinedTxMapBench {
     private static final String[] KEYS = {"key-0", "key-1", "key-2", "key-3"};
 
     private TransactionalMap<String, Integer> txMap;
 
     @Param({"array", "unbound", "nc", "sync"})
     private String combinerType;
+
+    private int capacity = 100;
 
     private static final Combiner.IdleStrategy strategy = Combiner.IdleStrategy.spinLoop(256);
 
@@ -45,10 +44,10 @@ public class TxMapCombinerBenchmark {
     @Setup(Level.Iteration)
     public void setup() {
         txMap = switch (combinerType) {
-            case "array" -> TransactionalMap.createFlatCombined(CombinerType.ARRAY, strategy);
-            case "unbound" -> TransactionalMap.createFlatCombined(CombinerType.UNBOUND, strategy);
-            case "nc" -> TransactionalMap.createFlatCombined(CombinerType.NODE_CYCLING, strategy);
-            case  "sync" -> TransactionalMap.createFlatCombined(CombinerType.SYNC, strategy);
+            case "array" -> TransactionalMap.createSegmentedCombined(CombinerType.ARRAY, strategy);
+            case "unbound" -> TransactionalMap.createSegmentedCombined(CombinerType.UNBOUND, strategy);
+            case "nc" -> TransactionalMap.createSegmentedCombined(CombinerType.NODE_CYCLING, strategy);
+            case "sync" -> TransactionalMap.createSegmentedCombined(CombinerType.SYNC, strategy);
             default -> throw new IllegalStateException("Unexpected value: " + combinerType);
         };
 
@@ -81,7 +80,6 @@ public class TxMapCombinerBenchmark {
     public void threadScaling_8(ThreadState ts, Blackhole bh) {
         singleOp(ts, bh);
     }
-
 
 
     @Benchmark

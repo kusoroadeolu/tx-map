@@ -50,4 +50,14 @@ public interface Combiner<E> {
             };
         }
     }
+
+
+    static <E>Combiner<E> getInstance(CombinerType type, E e){
+        return switch (type){
+            case ARRAY -> new AtomicArrayCombiner<>(e);
+            case UNBOUND -> new UnboundCombiner<>(e);
+            case NODE_CYCLING -> new NodeCyclingCombiner<>(e);
+            case SYNC -> new SynchronizedCombiner<>(e);
+        };
+    }
 }

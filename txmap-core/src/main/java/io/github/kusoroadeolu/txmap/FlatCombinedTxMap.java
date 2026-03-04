@@ -25,7 +25,7 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
         combiner = switch (type){
             case ARRAY -> new AtomicArrayCombiner<>(map);
             case UNBOUND -> new UnboundCombiner<>(map);
-            case SEMAPHORE -> new SemaphoreCombiner<>(map);
+            case NODE_CYCLING -> new NodeCyclingCombiner<>(map);
             case SYNC -> new SynchronizedCombiner<>(map);
         };
         this.idleStrategy = strategy;
@@ -117,9 +117,7 @@ public class FlatCombinedTxMap<K, V> implements TransactionalMap<K, V>{
 
         @Override
         public void abort() {
-            if (state == TransactionState.COMMITTED) throw new RuntimeException("Cannot commit a committed tx");
-            state = TransactionState.ABORTED;
-            actions.clear();
+            throw new UnsupportedOperationException();
         }
 
         @Override

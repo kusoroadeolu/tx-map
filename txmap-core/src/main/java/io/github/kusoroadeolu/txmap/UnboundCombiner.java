@@ -3,7 +3,6 @@ package io.github.kusoroadeolu.txmap;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class UnboundCombiner<E> implements Combiner<E>{
@@ -44,8 +43,10 @@ public class UnboundCombiner<E> implements Combiner<E>{
             return status.get() == INACTIVE;
         }
 
+
+        //Will always be written before a volatile write
         void setActive(){
-            this.status.set(ACTIVE);
+            this.status.setPlain(ACTIVE);
         }
 
     }
@@ -77,8 +78,6 @@ public class UnboundCombiner<E> implements Combiner<E>{
     private final static Node<?, ?> DUMMY = new Node<>(); //This marks the end of the "queue"
     private int count;
     private final int threshold;
-    final AtomicReferenceArray<String> hangLog = new AtomicReferenceArray<>(64); // one slot per thread
-
 
     public UnboundCombiner(E e) {
         this(e, 100);
@@ -169,31 +168,6 @@ public class UnboundCombiner<E> implements Combiner<E>{
         }
     }
 
-    void assertInQueue(Node<?,?> node, Node<?,?> head){
-        boolean inQueue = scanQueue(node, head);
-        assert inQueue : "Node should be in queue after re insert";
-    }
-
-//    void assertNotInQueue(Node<?,?> node){
-//        boolean inQueue = scanQueue(node);
-//        assert !inQueue : "Node should be in queue after re insert";
-//    }
-
-    private boolean scanQueue(Node<?, ?> node, Node<?, ?> head) {
-        boolean inQueue = false;
-        Node<?, ?> curr = head;
-        while (curr != null && curr != DUMMY){
-            if (curr == node) {
-                inQueue = true;
-                break;
-            }
-
-            while (curr.next == null) Thread.onSpinWait();
-            curr = curr.next;
-        }
-        return inQueue;
-    }
-
     @SuppressWarnings("unchecked")
     void scanCombineApply(){
         Node<E, Object> seenHead = (Node<E, Object>) this.head.get(); //H head should never be null, it should either be the dummy or some other node
@@ -206,7 +180,7 @@ public class UnboundCombiner<E> implements Combiner<E>{
         }
 
         //We should never remove the dummy node, else NPE issues could occur
-        if (seenHead != null && count >= threshold){
+        if (seenHead != null && count % threshold == 0){ //Rather than applying whenever count > threshold lets apply when their modulo is zero
             dequeFromHead(seenHead); //Seen head can never be null
             //assertInQueue(DUMMY, seenHead); //We need to ensure dummy is always in queue
         }
@@ -217,7 +191,6 @@ public class UnboundCombiner<E> implements Combiner<E>{
         var prev = seenHead;
         var current = seenHead.next;
         StatefulAction<E, ?> statefulAction;
-        //int count = 0;
         while (current != null && !current.equals(DUMMY)){
             statefulAction = current.statefulAction;
             if ((count - current.age) >= threshold){
@@ -243,6 +216,32 @@ public class UnboundCombiner<E> implements Combiner<E>{
         }
     }
 
+
+    void assertInQueue(Node<?,?> node, Node<?,?> head){
+        boolean inQueue = scanQueue(node, head);
+        assert inQueue : "Node should be in queue after re insert";
+    }
+
+//    void assertNotInQueue(Node<?,?> node){
+//        boolean inQueue = scanQueue(node);
+//        assert !inQueue : "Node should be in queue after re insert";
+//    }
+
+    private boolean scanQueue(Node<?, ?> node, Node<?, ?> head) {
+        boolean inQueue = false;
+        Node<?, ?> curr = head;
+        while (curr != null && curr != DUMMY){
+            if (curr == node) {
+                inQueue = true;
+                break;
+            }
+
+            while (curr.next == null) Thread.onSpinWait();
+            curr = curr.next;
+        }
+        return inQueue;
+    }
+
     public E e(){
         return e;
     }
@@ -266,4 +265,4 @@ public class UnboundCombiner<E> implements Combiner<E>{
 //HUNG - action: io.github.kusoroadeolu.txmap.benchmarks.CombinerBenchmark$$Lambda/0x00000000100551d0@6f4e8541 ,status: 1 ,age: 59416478 ,in queue: false ,node: io.github.kusoroadeolu.txmap.UnboundCombiner$Node@22532028, next: null
 
 
-// Ok it was a starvation issue, so i fixed by just forcing combiners to always enqueue and apply their actions no matter what, rather than just reenqueuing and going back to spin,but honestly i actually cant still reason about what cause the livelock and why timing even mattered in this scenario?
+// Ok it was a starvation issue, so i fixed by just forcing combiners to always enqueue and apply their actions no matter what, rather than just re-enqueuing and going back to spin and trusting others to apply it,but honestly i actually cant still reason about what cause the livelock and why timing even mattered in this scenario?
