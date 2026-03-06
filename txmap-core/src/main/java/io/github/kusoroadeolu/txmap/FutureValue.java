@@ -4,11 +4,17 @@ import io.github.kusoroadeolu.ferrous.option.Option;
 import org.jspecify.annotations.NonNull;
 
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 
 public class FutureValue<V> {
     private final CompletableFuture<V> future;
+    private static final FutureValue<?> UNCOMPLETED_FUTURE = new FutureValue<>();
 
     public FutureValue() {
         this.future = new CompletableFuture<>();
@@ -33,7 +39,11 @@ public class FutureValue<V> {
     }
 
     @SuppressWarnings("unchecked")
-    public void complete(@NonNull Object value){
+    void complete(@NonNull Object value){
         future.complete((V)value);
+    }
+
+    public static FutureValue<?> uncompletedFuture(){
+        return  UNCOMPLETED_FUTURE;
     }
 }
