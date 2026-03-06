@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class VersionChain<E> {
     private final Deque<Version<E>> versionQueue;
-    private volatile int currentVersion = 0; //Should only be incremented by the lock holder
+    private int currentVersion = 0; //Should only be incremented by the lock holder
     private volatile Version<E> latest;
     private final static long INF = Long.MAX_VALUE;
 
@@ -19,10 +19,15 @@ public class VersionChain<E> {
     }
 
     public void enqueueNewVersion(E e, long beginTs, TransactionID txnId){ //i.e. txcommit
-        Version<E> prev = versionQueue.getFirst();
+        Version<E> prev = null;
+        if (!versionQueue.isEmpty()){
+            prev = versionQueue.getFirst(); //This is always serialized so we can set check ifEmpty safely
+        }
+
+
         Version<E> latest = new Version<>(e, ++currentVersion, beginTs, txnId);
         versionQueue.add(latest); //Should only be incremented by the "holding tx"
-        prev.setEndTs(beginTs);
+        if (prev != null) prev.setEndTs(beginTs);
         this.latest = latest;
     }
 

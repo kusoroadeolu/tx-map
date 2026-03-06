@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentMap;
 //Append only storage
 //For garbage collection, the issue is knowing when a version is not visible to other transactions, we'll handle that later
 // version.begin-ts <= tBegin < version.end-ts
+//TODO Add garbage collection, just for ref I have an idea, on threshold limit exceeded, chop off some versions, however the issue is knowing what versions are still visible to upcoming transactions, also we should never chop off the latest version
 public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final CommitNumberGenerator commitNumberGenerator; //Incremented at commit time
     private final ConcurrentMap<K, VersionChain<V>> underlying;
@@ -109,36 +110,39 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         @Override
         public FutureValue<Option<V>> get(K key) {
             if (isAborted()) return (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
-            ReadOperation<K, ?> ro = this.doRead(key, ReadOperation.ReadType.GET);
-            return (FutureValue<Option<V>>) ro.future;
+            FutureValue<?> future = this.doRead(key, ReadOperation.ReadType.GET);
+            return (FutureValue<Option<V>>) future;
         }
 
         @SuppressWarnings("unchecked")
         @Override
         public FutureValue<Option<Boolean>> containsKey(K key) {
             if (isAborted()) return  (FutureValue<Option<Boolean>>) FutureValue.uncompletedFuture();
-            ReadOperation<K, ?> ro = this.doRead(key, ReadOperation.ReadType.CONTAINS);
-            return (FutureValue<Option<Boolean>>) ro.future;
+            FutureValue<?> future = this.doRead(key, ReadOperation.ReadType.CONTAINS);
+            return (FutureValue<Option<Boolean>>) future;
         }
 
         @SuppressWarnings("unchecked")
         @Override
         public FutureValue<Integer> size() {
             if (isAborted()) return (FutureValue<Integer>) FutureValue.uncompletedFuture();
-            ReadOperation<K, ?> ro = this.doRead(null, ReadOperation.ReadType.SIZE);
-            return (FutureValue<Integer>) ro.future;
+            FutureValue<?> future = this.doRead(null, ReadOperation.ReadType.SIZE);
+            return (FutureValue<Integer>) future;
         }
 
         @SuppressWarnings("unchecked")
-        ReadOperation<K, ?>  doRead(K key, ReadOperation.ReadType type) {
-            if (key != null) {
+        FutureValue<Object> doRead(K key, ReadOperation.ReadType type) {
+            if (type != ReadOperation.ReadType.SIZE) {
                 var ks = map.keyStatus(key);
-                if (ks.isHeld(this)) this.setAborted();
+                if (ks.isHeld(this)) {
+                    this.setAborted();
+                    return (FutureValue<Object>) FutureValue.uncompletedFuture();
+                }
             }
 
             ReadOperation<K, ?> ro = new ReadOperation<>(key, this, type);
             this.readSet.add((ReadOperation<K, Object>) ro);
-            return ro;
+            return (FutureValue<Object>) ro.future;
         }
 
 
@@ -168,6 +172,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
 
             releaseLocksAndClearOps();
+            this.state = TransactionState.COMMITTED;
         }
 
         public void validate(){
@@ -221,7 +226,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                     return false;
                 }
                 Thread.onSpinWait();
-            } //Spins until held, if the transaction is committed, but we're waiting to
+            } //Spins until held, if the transaction is committed(i.e. that operation has modified the map), but we're waiting to acquire the lock
 
             return true;
         }
