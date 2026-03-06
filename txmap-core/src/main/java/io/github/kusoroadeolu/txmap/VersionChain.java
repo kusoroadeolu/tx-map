@@ -18,20 +18,21 @@ public class VersionChain<E> {
         return latest;
     }
 
-    public void enqueueNewVersion(E e, long beginTs, TransactionID txnId){ //i.e. txcommit
+    public E enqueueNewVersion(E e, long beginTs, TransactionID txnId){ //i.e. txcommit
         Version<E> prev = null;
         if (!versionQueue.isEmpty()){
             prev = versionQueue.getFirst(); //This is always serialized so we can set check ifEmpty safely
         }
 
-
         Version<E> latest = new Version<>(e, ++currentVersion, beginTs, txnId);
         versionQueue.add(latest); //Should only be incremented by the "holding tx"
         if (prev != null) prev.setEndTs(beginTs);
         this.latest = latest;
+        return prev == null ? null : prev.e;
     }
 
     public Version<E> findOverlap(long tBegin){
+        if (versionQueue.isEmpty()) return null;
         Version<E> overlap = null;
         for (Version<E> version : versionQueue){
             if (version.beginTs <= tBegin && tBegin < version.endTs){
@@ -43,6 +44,12 @@ public class VersionChain<E> {
         return overlap;
     }
 
+    @Override
+    public String toString() {
+        return "VersionChain{" +
+                "versionQueue=" + versionQueue +
+                '}';
+    }
 
     public static class Version<E>{
         final E e;
@@ -77,6 +84,17 @@ public class VersionChain<E> {
 
         public long endTs() {
             return endTs;
+        }
+
+        @Override
+        public String toString() {
+            return "Version{" +
+                    "e=" + e +
+                    ", versionNo=" + versionNo +
+                    ", beginTs=" + beginTs +
+                    ", txnId=" + txnId +
+                    ", endTs=" + endTs +
+                    '}';
         }
     }
 

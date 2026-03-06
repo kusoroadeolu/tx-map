@@ -4,6 +4,7 @@ import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.VersionChain.Version;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -36,7 +37,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         return ks;
     }
 
-    VersionChain<V> versionChain(K key){
+    public VersionChain<V> versionChain(K key){
         var vMap = underlying;
         VersionChain<V> versionChain = vMap.get(key);
         if(versionChain == null) {
@@ -88,7 +89,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
             var ks = map.keyStatus(key);
             boolean held = this.tryHold(ks); //If we fail to hold the 'lock' and the lock holder hasnt committed just abort the whole tx
-            if (!held) { //Failed to hold write lock, abort
+            if (held) { //Failed to hold write lock, abort
                 this.setAborted();
                 return (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
             }
@@ -98,7 +99,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
             VersionChain<V> versionChain = map.versionChain(key);
             Version<V> overlap = versionChain.findOverlap(tBegin);
-            if (!overlap.equals(versionChain.latest())) { //Stale write version, abort
+            if (!Objects.equals(overlap, versionChain.latest())) { //Stale write version, abort
                 this.setAborted();
                 return (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
             }
@@ -223,12 +224,12 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         boolean tryHold(KeyStatus ks){
             while(!ks.setHeld(txnId)){
                 if (!ks.isCommitted()){ //If the holding tx has not committed, fail, we should abort after this
-                    return false;
+                    return true; //Is held
                 }
                 Thread.onSpinWait();
             } //Spins until held, if the transaction is committed(i.e. that operation has modified the map), but we're waiting to acquire the lock
 
-            return true;
+            return false;
         }
 
 
@@ -246,9 +247,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
 
             public void apply() {
-                mvccTx.map.versionChain(key)
-                        .enqueueNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
-                future.complete(value);
+                V prev = mvccTx.map.versionChain(key).enqueueNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
+                future.complete(Option.ofNullable(prev));
             }
         }
 
@@ -265,8 +265,13 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 this.mvccTx = mvccTx;
                 this.future = new FutureValue<>();
                 this.readType = readType;
-                this.seen = mvccTx.map.versionChain(key)
-                        .findOverlap(mvccTx.tBegin);
+                if (readType != ReadType.SIZE){
+                    this.seen = mvccTx.map.versionChain(key)
+                            .findOverlap(mvccTx.tBegin);
+                    return;
+                }
+
+                this.seen = null;
             }
 
             // We could add read semantic aware validation, but for now lets stick to the paper
@@ -286,7 +291,10 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                        else yield seen.e();
                     }
                     case SIZE -> mvccTx.map.underlying.size(); //Dirty reads are allowed for size, no way to really keep a version chain for size, even if we can not worth the complexity
-                    case CONTAINS -> seen != null && seen.e() != null;
+                    case CONTAINS -> {
+                       IO.println(mvccTx.map.versionChain(key));
+                       yield  seen != null && seen.e() != null;
+                    }
                 };
 
                 future.complete(Option.ofNullable(value));

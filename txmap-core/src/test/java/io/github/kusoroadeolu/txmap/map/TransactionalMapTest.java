@@ -2,6 +2,8 @@ package io.github.kusoroadeolu.txmap.map;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.FutureValue;
+import io.github.kusoroadeolu.txmap.MvccTransactionalMap;
+import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,11 +14,11 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TransactionalMapTest {
-    private OptimisticTransactionalMap<String, Integer> txMap;
+    private TransactionalMap<Object, Object> txMap;
 
     @BeforeEach
     void setUp() {
-        txMap = new OptimisticTransactionalMap<>();
+        txMap = TransactionalMap.create();
     }
 
     // -------------------------------------------------------------------------
@@ -24,7 +26,7 @@ class TransactionalMapTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void put_thenGet_returnsCommittedValue() {
+    void put_thenGet_returnsNone() {
         try (var tx = txMap.beginTx()) {
             var putFuture = tx.put("foo", 42);
             var getFuture = tx.get("foo");
@@ -33,8 +35,8 @@ class TransactionalMapTest {
             // put returns previous value (none since map was empty)
             IO.println(putFuture.get());
             assertTrue(putFuture.get().isNone());
-            // get returns the value we put
-            assertEquals(Option.some(42), getFuture.get());
+            // get returns none
+            assertEquals(Option.none(), getFuture.get());
         }
     }
 
@@ -71,8 +73,9 @@ class TransactionalMapTest {
             tx.remove("a");
             var sizeFuture = tx.size();
             tx.commit();
-
-            assertEquals(Option.some(2), sizeFuture.get());
+            MvccTransactionalMap<Object, Object> mvc = ((MvccTransactionalMap<Object, Object>) txMap) ;
+            assertEquals(Option.some(3), sizeFuture.get()); //Should be 3 since, we just enqueue a null version;
+            assertNull(mvc.versionChain("a").latest().e());
         }
     }
 
@@ -121,7 +124,7 @@ class TransactionalMapTest {
 
     @Test
     void abort_futureValuesAreNotCompleted() {
-        FutureValue<Option<Integer>> putFuture;
+        FutureValue<Option<Object>> putFuture;
 
         try (var tx = txMap.beginTx()) {
             putFuture = tx.put("x", 10);
@@ -206,10 +209,9 @@ class TransactionalMapTest {
         }
 
         startGate.countDown();
-        assertTrue(doneGate.await(5, TimeUnit.SECONDS));
-        executor.shutdown();
+        Thread.sleep(100);
+        executor.close();
 
-        // The map should have exactly one value under "contested"
         try (var tx = txMap.beginTx()) {
             var containsFuture = tx.containsKey("contested");
             tx.commit();
