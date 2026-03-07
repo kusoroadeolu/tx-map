@@ -53,7 +53,7 @@ class TransactionalMapTest {
             var containsFuture = tx.containsKey("bar");
             tx.commit();
             assertEquals(Option.some(99), removeFuture.get());
-            assertEquals(Option.some(false), containsFuture.get());
+            assertEquals(Option.some(true), containsFuture.get()); //Should return true because we never see writes from our own transactions
         }
     }
 
@@ -99,7 +99,7 @@ class TransactionalMapTest {
         try (var tx = txMap.beginTx()) {
             var future = tx.containsKey("ghost");
             tx.commit();
-
+            assertTrue(future.isComplete());
             assertEquals(Option.some(false), future.get());
         }
     }

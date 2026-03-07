@@ -82,16 +82,16 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
 
 
-        @SuppressWarnings("unchecked")
         FutureValue<Option<V>> doWrite(K key, V value){
             if (isAborted()) {
-                return (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
+                return uncompletedFuture();
             }
+
             var ks = map.keyStatus(key);
-            boolean held = this.tryHold(ks); //If we fail to hold the 'lock' and the lock holder hasnt committed just abort the whole tx
-            if (held) { //Failed to hold write lock, abort
+            boolean alreadyHeld = this.tryHold(ks); //If we fail to hold the 'lock' and the lock holder hasnt committed just abort the whole tx
+            if (alreadyHeld) { //Failed to hold write lock, abort
                 this.setAborted();
-                return (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
+                return uncompletedFuture();
             }
 
             WriteOperation<K, V> wo = new WriteOperation<>(key, value, this);
@@ -101,7 +101,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             Version<V> overlap = versionChain.findOverlap(tBegin);
             if (!Objects.equals(overlap, versionChain.latest())) { //Stale write version, abort
                 this.setAborted();
-                return (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
+                return uncompletedFuture();
             }
 
             return wo.future;
@@ -110,7 +110,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         @SuppressWarnings("unchecked")
         @Override
         public FutureValue<Option<V>> get(K key) {
-            if (isAborted()) return (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
+            if (isAborted()) return uncompletedFuture();
             FutureValue<?> future = this.doRead(key, ReadOperation.ReadType.GET);
             return (FutureValue<Option<V>>) future;
         }
@@ -135,7 +135,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         FutureValue<Object> doRead(K key, ReadOperation.ReadType type) {
             if (type != ReadOperation.ReadType.SIZE) {
                 var ks = map.keyStatus(key);
-                if (ks.isHeld(this)) {
+                if (ks.isHeld() && !ks.isOwnedBy(this)) {
                     this.setAborted();
                     return (FutureValue<Object>) FutureValue.uncompletedFuture();
                 }
@@ -145,8 +145,6 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             this.readSet.add((ReadOperation<K, Object>) ro);
             return (FutureValue<Object>) ro.future;
         }
-
-
 
         @Override
         public boolean isCommitted() {
@@ -221,6 +219,11 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             this.state = TransactionState.ABORTED;
         }
 
+        @SuppressWarnings("unchecked")
+        static <V>FutureValue<Option<V>>  uncompletedFuture(){
+           return  (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
+        }
+
         boolean tryHold(KeyStatus ks){
             while(!ks.setHeld(txnId)){
                 if (!ks.isCommitted()){ //If the holding tx has not committed, fail, we should abort after this
@@ -277,7 +280,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             // We could add read semantic aware validation, but for now lets stick to the paper
             public void validate(){
                 if (key == null || mvccTx.isAborted()) return; //If this is a size operation
-                Version<V> overlapAtCommit = mvccTx.map.versionChain(key).findOverlap(mvccTx.tCommit); //Find if there's an overlap at commit time
+                Version<V> overlapAtCommit = mvccTx.map.versionChain(key)
+                        .findOverlap(mvccTx.tCommit); //Find if there's an overlap at commit time
                 if (seen != overlapAtCommit){ //If the version we saw at txn begin isn't what we saw at commit time just abort the whole thing
                     mvccTx.setAborted();
                 }
@@ -291,10 +295,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                        else yield seen.e();
                     }
                     case SIZE -> mvccTx.map.underlying.size(); //Dirty reads are allowed for size, no way to really keep a version chain for size, even if we can not worth the complexity
-                    case CONTAINS -> {
-                       IO.println(mvccTx.map.versionChain(key));
-                       yield  seen != null && seen.e() != null;
-                    }
+                    case CONTAINS -> seen != null && seen.e() != null;
                 };
 
                 future.complete(Option.ofNullable(value));

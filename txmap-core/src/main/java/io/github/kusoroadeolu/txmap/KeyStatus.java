@@ -34,8 +34,12 @@ public class KeyStatus {
         return false;
     }
 
-     <K, V> boolean isHeld(MvccTx<K,V> kvMvccTx) {
+     <K, V> boolean isOwnedBy(MvccTx<K,V> kvMvccTx) {
         return this.status.get().txnId == kvMvccTx.txnId().txnId();
+     }
+
+    <K, V> boolean isHeld() {
+        return this.status.get() != NOT_HELD;
     }
 
     static class Status{

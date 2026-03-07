@@ -1,16 +1,18 @@
 package io.github.kusoroadeolu.txmap;
 
 import java.util.Deque;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class VersionChain<E> {
-    private final Deque<Version<E>> versionQueue;
+    private final Queue<Version<E>> versionQueue;
     private int currentVersion = 0; //Should only be incremented by the lock holder
     private volatile Version<E> latest;
     private final static long INF = Long.MAX_VALUE;
 
     public VersionChain() {
-        this.versionQueue = new ConcurrentLinkedDeque<>();
+        this.versionQueue = new ConcurrentLinkedQueue<>();
     }
 
 
@@ -19,11 +21,7 @@ public class VersionChain<E> {
     }
 
     public E enqueueNewVersion(E e, long beginTs, TransactionID txnId){ //i.e. txcommit
-        Version<E> prev = null;
-        if (!versionQueue.isEmpty()){
-            prev = versionQueue.getFirst(); //This is always serialized so we can set check ifEmpty safely
-        }
-
+        Version<E> prev = versionQueue.peek(); //This is always serialized so we can set check ifEmpty safely
         Version<E> latest = new Version<>(e, ++currentVersion, beginTs, txnId);
         versionQueue.add(latest); //Should only be incremented by the "holding tx"
         if (prev != null) prev.setEndTs(beginTs);
