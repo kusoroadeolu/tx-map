@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class KeyStatus {
     private final AtomicReference<Status> status;
-    private final static Status NOT_HELD = new Status(-1);
+    private final static Status NOT_HELD = new Status(-1); //Just use a status, in case the long wraps around, so
 
     public KeyStatus() {
         this.status = new AtomicReference<>(NOT_HELD);
@@ -17,13 +17,6 @@ public class KeyStatus {
         return status.get().txnId() == id.txnId() || this.status.compareAndSet(NOT_HELD, new Status(id.txnId()));
     }
 
-    public void setCommitted(){
-        this.status.get().setCommitted();
-    }
-
-    public boolean isCommitted(){
-        return this.status.get().isCommitted;
-    }
 
     public boolean setNotHeld(TransactionID id){
         Status s = status.get();
@@ -38,24 +31,11 @@ public class KeyStatus {
         return this.status.get().txnId == kvMvccTx.txnId().txnId();
      }
 
-    <K, V> boolean isHeld() {
+    boolean isHeld() {
         return this.status.get() != NOT_HELD;
     }
 
-    static class Status{
-        private final long txnId;
-        private volatile boolean isCommitted = false;
+    record Status(long txnId) {
 
-        public Status(long txnId) {
-            this.txnId = txnId;
-        }
-
-        long txnId(){
-            return txnId;
-        }
-
-        void setCommitted(){
-            this.isCommitted = true;
-        }
     }
 }

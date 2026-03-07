@@ -16,4 +16,7 @@ Also, if a version doesnt update the value of the old version, a new version isn
 
 
 ## Probable race conditions
-A writer enqueues a new version right as a reader has finished reading(though this might not matter)
+A writer enqueues a new version right as a reader has finished validating(though this might not matter)
+
+
+### Issues encountered

@@ -1,8 +1,13 @@
 package io.github.kusoroadeolu.txmap.benchmarks;
 
+import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.profile.AsyncProfiler;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.concurrent.TimeUnit;
 
@@ -42,7 +47,10 @@ ContentionBenchmark.writeHeavy_8threads  thrpt   10   340917.224 ±  77466.989  
 @State(Scope.Benchmark)
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
-@Fork(2)
+@Fork(value = 2, jvmArgsPrepend = {
+        "-XX:+UnlockDiagnosticVMOptions",
+        "-XX:+DebugNonSafepoints"
+})
 public class ContentionBenchmark {
 
     // Small fixed key pool — all threads compete over these
@@ -56,10 +64,13 @@ public class ContentionBenchmark {
     // -------------------------------------------------------------------------
 
     @State(Scope.Thread)
+    @AuxCounters(AuxCounters.Type.EVENTS)
     public static class ThreadState {
         // Simple round-robin index for key selection — spreads load evenly
         int keyIndex = 0;
         int opIndex  = 0;   // Used to decide read vs write based on ratio
+        public long commits = 0;
+        public long aborts  = 0;
 
         String nextKey() {
             String key = KEYS[keyIndex % KEYS.length];
@@ -142,35 +153,44 @@ public class ContentionBenchmark {
 
     private void readHeavy(ThreadState ts, Blackhole bh) {
         boolean isWrite = (ts.opIndex++ % 10) == 0; // 1 in 10 ops is a write
-        doOp(ts.nextKey(), isWrite, bh);
+        doOp(ts.nextKey(), isWrite, bh, ts);
     }
 
     private void balanced(ThreadState ts, Blackhole bh) {
         boolean isWrite = (ts.opIndex++ % 2) == 0; // every other op is a write
-        doOp(ts.nextKey(), isWrite, bh);
+        doOp(ts.nextKey(), isWrite, bh, ts);
     }
 
     private void writeHeavy(ThreadState ts, Blackhole bh) {
         boolean isWrite = (ts.opIndex++ % 10) != 0; // 9 in 10 ops is a write
-        doOp(ts.nextKey(), isWrite, bh);
+        doOp(ts.nextKey(), isWrite, bh, ts);
     }
 
     //Include size in both to measure the overhead of size ops in pessimistic, though this should have minimal effect for CoW and Snapshots
-    private void doOp(String key, boolean isWrite, Blackhole bh) {
+    private void doOp(String key, boolean isWrite, Blackhole bh, ThreadState ts) {
         try (var tx = txMap.beginTx()) {
+            io.github.kusoroadeolu.txmap.FutureValue<Option<Integer>> future;
             if (isWrite) {
-                var future = tx.put(key, 42);
-                var future2 = tx.size();
-                tx.commit();
-                bh.consume(future.get());
-                bh.consume(future2.get());
+                future = tx.put(key, 42);
             } else {
-                var future = tx.get(key);
-                var future2 = tx.size();
-                tx.commit();
-                bh.consume(future.get());
-                bh.consume(future2.get());
+                future = tx.get(key);
             }
+
+            var future2 = tx.size();
+            tx.commit();
+            if (tx.isCommitted()) ts.commits++;
+            else ts.aborts++;
+            bh.consume(future.get());
+            bh.consume(future2.get());
+        }
+    }
+
+    static class JMHRunner{
+        void main() throws Exception {
+            Options opt = new OptionsBuilder()
+                    .include(ContentionBenchmark.class.getSimpleName())
+                    .addProfiler("jfr", "dir=C:\\jfr-output").build();
+            new Runner(opt).run();
         }
     }
 }

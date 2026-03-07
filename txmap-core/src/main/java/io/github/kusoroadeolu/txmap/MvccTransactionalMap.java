@@ -1,7 +1,6 @@
 package io.github.kusoroadeolu.txmap;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
-import io.github.kusoroadeolu.txmap.VersionChain.Version;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -13,6 +12,7 @@ import java.util.concurrent.ConcurrentMap;
 //Append only storage
 //For garbage collection, the issue is knowing when a version is not visible to other transactions
 // version.begin-ts <= tBegin < version.end-ts
+//TODO, write heavy workloads have crazy error margins, my current suspect is the garbage collection running on the write transactions thread, clearing unreachable versions after every N iterations could cause issues, cause in a queue of 500k, half of those versions might still be reachable, so we're basically going to iterate this on every write tx that acquires the lock
 public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final CommitNumberGenerator commitNumberGenerator; //Incremented at commit time
     private final ConcurrentMap<K, VersionChain<V>> underlying;
@@ -42,10 +42,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     public VersionChain<V> versionChain(K key){
         var vMap = underlying;
         VersionChain<V> versionChain = vMap.get(key);
-        if(versionChain == null) {
-            versionChain = vMap.computeIfAbsent(key, _ -> new VersionChain<>());
-        }
-
+        if(versionChain == null) versionChain = vMap.computeIfAbsent(key, _ -> new NavigableVersionChain<>());
         return versionChain;
     }
 
@@ -165,8 +162,6 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
             for (WriteOperation<K, V> wo : writeSet){
                 wo.apply();
-                var s = map.keyStatus(wo.key);
-                s.setCommitted();
             }
 
             for (ReadOperation<K, Object> ro : readSet){
@@ -229,14 +224,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         }
 
         boolean tryHold(KeyStatus ks){
-            while(!ks.setHeld(txnId)){
-                if (!ks.isCommitted()){ //If the holding tx has not committed, fail, we should abort after this
-                    return true; //Is held
-                }
-                Thread.onSpinWait();
-            } //Spins until held, if the transaction is committed(i.e. that operation has modified the map), but we're waiting to acquire the lock
-
-            return false;
+            //If we cannot hold the lock, return true the lock is already held
+            return !ks.setHeld(txnId); //Don't spin, to prevent an issue where threads just tag team holding the lock, and we basically livelock
         }
 
 
@@ -260,12 +249,9 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
                 //Removing previous versions
                 if (versionChain.size() >= VERSION_THRESHOLD){
-                    ActiveTransactions activeTxns = mvccTx.map.activeTransactions.copy(); //We're getting a copy to prevent any race conditions while we're searching for the lowest tBegin
-                    long minActiveTBegin = activeTxns.findMinActiveTBegin();
+                    long minActiveTBegin = mvccTx.map.activeTransactions.findMinActiveTBegin();
                     versionChain.removeUnreachableVersions(minActiveTBegin);
                 }
-
-
             }
         }
 
@@ -308,7 +294,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                        if (seen == null) yield null;
                        else yield seen.e();
                     }
-                    case SIZE -> mvccTx.map.underlying.size(); //Dirty reads are allowed for size, no way to really keep a version chain for size, even if we can not worth the complexity
+                    case SIZE -> mvccTx.map.underlying.size(); //Dirty reads are allowed for size, no way to really keep a version chain for size, even if we can, not worth the complexity
                     case CONTAINS -> seen != null && seen.e() != null;
                 };
 
