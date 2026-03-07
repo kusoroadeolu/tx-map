@@ -11,19 +11,21 @@ import java.util.concurrent.ConcurrentMap;
 
 
 //Append only storage
-//For garbage collection, the issue is knowing when a version is not visible to other transactions, we'll handle that later
+//For garbage collection, the issue is knowing when a version is not visible to other transactions
 // version.begin-ts <= tBegin < version.end-ts
-//TODO Add garbage collection, just for ref I have an idea, on threshold limit exceeded, chop off some versions, however the issue is knowing what versions are still visible to upcoming transactions, also we should never chop off the latest version
 public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final CommitNumberGenerator commitNumberGenerator; //Incremented at commit time
     private final ConcurrentMap<K, VersionChain<V>> underlying;
     private final ConcurrentMap<K, KeyStatus> status; //Keeping the status to the key
     private final TransactionIDGenerator idGenerator;
+    private final ActiveTransactions activeTransactions;
+    private static final int VERSION_THRESHOLD = 100;
 
     public MvccTransactionalMap() {
         this.commitNumberGenerator = new CommitNumberGenerator();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
+        this.activeTransactions = new ActiveTransactions();
         this.idGenerator = new TransactionIDGenerator();
     }
 
@@ -66,6 +68,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             this.map = map;
             this.txnId = new TransactionID(map.idGenerator.newId());
             this.tBegin = map.commitNumberGenerator.currentCommitNo();
+            map.activeTransactions.put(txnId, tBegin);
             this.readSet = new HashSet<>();
             this.writeSet = new HashSet<>();
         }
@@ -171,6 +174,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
 
             releaseLocksAndClearOps();
+            this.map.activeTransactions.remove(txnId);
             this.state = TransactionState.COMMITTED;
         }
 
@@ -250,8 +254,18 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
 
             public void apply() {
-                V prev = mvccTx.map.versionChain(key).enqueueNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
+                var versionChain = mvccTx.map.versionChain(key);
+                var prev =  versionChain.enqueueNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
                 future.complete(Option.ofNullable(prev));
+
+                //Removing previous versions
+                if (versionChain.size() >= VERSION_THRESHOLD){
+                    ActiveTransactions activeTxns = mvccTx.map.activeTransactions.copy(); //We're getting a copy to prevent any race conditions while we're searching for the lowest tBegin
+                    long minActiveTBegin = activeTxns.findMinActiveTBegin();
+                    versionChain.removeUnreachableVersions(minActiveTBegin);
+                }
+
+
             }
         }
 

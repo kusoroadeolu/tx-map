@@ -1,6 +1,7 @@
 package io.github.kusoroadeolu.txmap;
 
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -40,6 +41,24 @@ public class VersionChain<E> {
         }
 
         return overlap;
+    }
+
+    public void removeUnreachableVersions(long tBegin){ //We're linking versions whose endTs < tBegin
+        //Excluding the topmost version ofc
+        Iterator<Version<E>> it = versionQueue.iterator();
+        int count = 0;
+        while (it.hasNext()) {
+            Version<E> version = it.next();
+            if (count++ == 0) continue;
+            if (version.endTs < tBegin) {
+                it.remove();
+            }
+        }
+
+    }
+
+    public int size(){
+        return versionQueue.size();
     }
 
     @Override
