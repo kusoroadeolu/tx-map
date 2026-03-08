@@ -41,7 +41,7 @@ public class SegmentedCombinedTxMapBench {
         }
     }
 
-    @Setup(Level.Iteration)
+    @Setup(Level.Trial)
     public void setup() {
         txMap = switch (combinerType) {
             case "array" -> TransactionalMap.createSegmentedCombined(CombinerType.ARRAY, strategy);

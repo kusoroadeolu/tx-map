@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(2)
-public class SerializedTxMapCombinerBenchmark {
+public class SerializedCombinedTxMapBench {
 
     private static final String[] KEYS = {"key-0", "key-1", "key-2", "key-3"};
 
@@ -42,7 +42,7 @@ public class SerializedTxMapCombinerBenchmark {
         }
     }
 
-    @Setup(Level.Iteration)
+    @Setup(Level.Trial)
     public void setup() {
         txMap = switch (combinerType) {
             case "array" -> TransactionalMap.createFlatCombined(CombinerType.ARRAY, strategy);
