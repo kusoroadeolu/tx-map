@@ -8,4 +8,6 @@ public interface TransactionalMap<K, V> {
     }
 
     MapTransaction<K, V> beginTx();
+
+    void stop();
 }

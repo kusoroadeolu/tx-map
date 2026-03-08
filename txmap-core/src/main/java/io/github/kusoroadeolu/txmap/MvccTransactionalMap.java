@@ -16,7 +16,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final ConcurrentMap<K, VersionChain<V>> underlying;
     private final ConcurrentMap<K, KeyStatus> status; //Keeping the status to the key
     private final TransactionIDGenerator idGenerator;
-    private final ActiveTransactionsKeeper activeTransactions;
+    private final PartitionedActiveTransactionKeeper activeTransactions;
     private final BackgroundGCThread<K, V> gcThread;
     private static final int VERSION_THRESHOLD = 100;
 
@@ -24,7 +24,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         this.commitNumberGenerator = new CommitNumberGenerator();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
-        this.activeTransactions = new ActiveTransactionsKeeper();
+        this.activeTransactions = new PartitionedActiveTransactionKeeper();
         this.idGenerator = new TransactionIDGenerator();
         this.gcThread = new BackgroundGCThread<>(underlying);
     }
@@ -44,6 +44,12 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         VersionChain<V> versionChain = vMap.get(key);
         if(versionChain == null) versionChain = vMap.computeIfAbsent(key, _ -> new NavigableVersionChain<>());
         return versionChain;
+    }
+
+    @Override
+    public void stop() {
+        activeTransactions.stop();
+        gcThread.stop();
     }
 
     @Override
@@ -250,7 +256,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
                 //Removing previous versions
                 if (versionChain.size() % VERSION_THRESHOLD == 0){
-                    long minActiveTBegin = mvccTx.map.activeTransactions.findMinActiveTBegin();
+                    long minActiveTBegin = mvccTx.map.activeTransactions.minActiveTBegin();
                     gcBatch.get().add(new CleanupRequest<>(key, minActiveTBegin), (BackgroundGCThread<Object, Object>) mvccTx.map.gcThread);
                 }
             }

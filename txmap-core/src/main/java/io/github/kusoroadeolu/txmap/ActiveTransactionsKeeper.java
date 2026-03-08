@@ -12,6 +12,7 @@ public class ActiveTransactionsKeeper {
     private final ConcurrentMap<TransactionID, Long> map;
     private final Queue<ModifyRequest> requests;
     private final Thread.Builder.OfVirtual thread;
+    private volatile boolean stop = false;
     private volatile long minActiveTBegin = Long.MAX_VALUE;
 
     public ActiveTransactionsKeeper() {
@@ -33,7 +34,7 @@ public class ActiveTransactionsKeeper {
 
     void start(){
         thread.start(() -> {
-            while (true){ //TODO add bool flag for shutdown
+            while (!stop){ //TODO add bool flag for shutdown
                 ModifyRequest request = null;
                 while ((request = requests.poll()) != null){
                     switch (request.type){
@@ -54,6 +55,12 @@ public class ActiveTransactionsKeeper {
         });
     }
 
+    void stop(){
+        this.stop = true;
+        requests.clear();
+        map.clear();
+    }
+
     long searchNextMinActiveTBegin(){
         Collection<Long> tBeginColl = map.values();
         long min = 0;
@@ -67,8 +74,7 @@ public class ActiveTransactionsKeeper {
         return min;
     }
 
-    //Should only be called if a transaction has copied this map onto its thread stack
-    long findMinActiveTBegin(){
+    long minActiveTBegin(){
         return minActiveTBegin;
     }
 

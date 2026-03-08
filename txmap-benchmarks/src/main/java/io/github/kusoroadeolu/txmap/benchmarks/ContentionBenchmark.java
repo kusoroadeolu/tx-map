@@ -42,10 +42,6 @@ public class ContentionBenchmark {
 
     private TransactionalMap<String, Integer> txMap;
 
-    // -------------------------------------------------------------------------
-    // Abort tracking via AuxCounters
-    // Each thread tracks its own abort count — JMH aggregates across threads
-    // -------------------------------------------------------------------------
 
     @State(Scope.Thread)
     //@AuxCounters(AuxCounters.Type.EVENTS)

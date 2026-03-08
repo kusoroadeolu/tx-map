@@ -1,5 +1,8 @@
 package io.github.kusoroadeolu.txmap;
 
+/*
+* 12, 4(Object header plus ), 4,4,
+* */
 public class Version<E>{
         private final static long INF = Long.MAX_VALUE;
         final E e;

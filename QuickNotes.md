@@ -122,3 +122,17 @@ ContentionBenchmark.writeHeavy_8threads      thrpt   10   853466.979 ± 556489.9
 ```
 
 As we can see, the write numbers improved a bit, and the error margins also decreased a bit
+
+I then decided to try segmenting my active transactions tracking class(not my garbage collecting thread) by txn ID, just to measure the difference and I got some surprising results
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10   601762.093 ± 137771.491  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1005846.389 ±  96703.066  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1700100.197 ± 144301.351  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  1321714.189 ± 346860.821  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   321688.060 ±  95079.876  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   549510.063 ± 160634.881  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10   826926.873 ± 149437.015  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  1026862.457 ± 520060.221  ops/s
+```
+My scaling basically inverted with my lowest thrpt for both operations being at one thread and the highest being at > 2 threads

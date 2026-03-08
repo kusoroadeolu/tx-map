@@ -8,6 +8,7 @@ public class BackgroundGCThread<K, V> {
     private final ConcurrentMap<K, VersionChain<V>> map;
     private final Queue<BatchCleanupReq<K, V>> batchCleanupReqs;
     private final Thread.Builder.OfVirtual thread;
+    private volatile boolean stop = false;
 
 
     public BackgroundGCThread(ConcurrentMap<K, VersionChain<V>> map) {
@@ -23,7 +24,7 @@ public class BackgroundGCThread<K, V> {
 
     private void start(){
         thread.start(() -> {
-            while (true){
+            while (!stop){
                 BatchCleanupReq<K, V> current;
                 while ((current = batchCleanupReqs.poll()) != null){
                     for (CleanupRequest<K> request : current.requests){
@@ -34,6 +35,12 @@ public class BackgroundGCThread<K, V> {
                 }
             }
         });
+    }
+
+    void stop(){
+        this.stop = true;
+        this.batchCleanupReqs.clear();
+        this.map.clear();
     }
 
 
