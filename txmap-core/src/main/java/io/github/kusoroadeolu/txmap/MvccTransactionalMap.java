@@ -12,19 +12,19 @@ import java.util.concurrent.ConcurrentMap;
 // version.begin-ts <= tBegin < version.end-ts
 //TODO, write heavy workloads have crazy error margins, my current suspect is the garbage collection running on the write transactions thread, clearing unreachable versions after every N iterations could cause issues, cause in a queue of 500k, half of those versions might still be reachable, so we're basically going to iterate this on every write tx that acquires the lock
 public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
-    private final CommitNumberGenerator commitNumberGenerator; //Incremented at commit time
+    private final EpochTracker epochTracker; //Incremented at commit time
     private final ConcurrentMap<K, VersionChain<V>> underlying;
     private final ConcurrentMap<K, KeyStatus> status; //Keeping the status to the key
     private final TransactionIDGenerator idGenerator;
-    private final ActiveTransactionsKeeper activeTransactions;
+   // private final ActiveTransactionsKeeper activeTransactions;
     private final BackgroundGCThread<K, V> gcThread;
     private static final int VERSION_THRESHOLD = 100;
 
     public MvccTransactionalMap() {
-        this.commitNumberGenerator = new CommitNumberGenerator();
+        this.epochTracker = new EpochTracker();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
-        this.activeTransactions = new ActiveTransactionsKeeper();
+    //    this.activeTransactions = new ActiveTransactionsKeeper();
         this.idGenerator = new TransactionIDGenerator();
         this.gcThread = new BackgroundGCThread<>(underlying);
     }
@@ -48,7 +48,6 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
     @Override
     public void stop() {
-        activeTransactions.stop();
         gcThread.stop();
     }
 
@@ -70,8 +69,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         public MvccTx(MvccTransactionalMap<K, V> map) {
             this.map = map;
             this.txnId = new TransactionID(map.idGenerator.newId());
-            this.tBegin = map.commitNumberGenerator.currentCommitNo();
-            map.activeTransactions.put(txnId, tBegin);
+            this.tBegin = map.epochTracker.currentEpoch();
             this.readSet = new ArrayList<>(4);
             this.writeSet = new ArrayList<>(4);
         }
@@ -175,13 +173,13 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
 
             releaseLocksAndClearOps();
-            this.map.activeTransactions.remove(txnId);
+            this.map.epochTracker.decrementEpoch(tBegin);
             this.state = TransactionState.COMMITTED;
         }
 
         public void validate(){
             if (isAborted()) return;
-            tCommit = map.commitNumberGenerator.newCommitNo();
+            tCommit = map.epochTracker.newCommitNo();
             for (ReadOperation<K, Object> readOperation : readSet){
                 readOperation.validate();
             }
@@ -254,7 +252,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
                 //Removing previous versions
                 if (versionChain.size() % VERSION_THRESHOLD == 0){
-                    long minActiveTBegin = mvccTx.map.activeTransactions.minActiveTBegin();
+                    long minActiveTBegin = mvccTx.map.epochTracker.minActiveTBegin();
                     mvccTx.map.gcThread.submitBatchRequest(key, minActiveTBegin);
                 }
             }

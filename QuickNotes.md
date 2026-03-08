@@ -165,31 +165,17 @@ ContentionBenchmark.writeHeavy_8threads      thrpt   10   927350.663 ± 194550.0
 ```
 
 
-### 
-**Active Txn Keeper**
+I decided to change my strategy for version tracking to use map based epoch tracking rather than a single writer background thread, and these the results improved significantly, but oddly, at 2 threads, the thrpt is so bad
 ```java
-Benchmark                                       Mode  Cnt        Score        Error  Units
-DisjointKeyBenchmark.txMap_batch_1thread       thrpt   10   491596.054 ±  88686.322  ops/s
-DisjointKeyBenchmark.txMap_batch_2threads      thrpt   10   634597.861 ± 106996.382  ops/s
-DisjointKeyBenchmark.txMap_batch_4threads      thrpt   10   916953.080 ± 170427.572  ops/s
-DisjointKeyBenchmark.txMap_batch_8threads      thrpt   10   639487.244 ± 200852.136  ops/s
-DisjointKeyBenchmark.txMap_put_1thread         thrpt   10   672616.701 ± 137058.754  ops/s
-DisjointKeyBenchmark.txMap_put_2threads        thrpt   10   828952.755 ±  98710.322  ops/s
-DisjointKeyBenchmark.txMap_put_4threads        thrpt   10  1131247.738 ± 113252.474  ops/s
-DisjointKeyBenchmark.txMap_put_8threads        thrpt   10   688941.792 ± 173558.902  ops/s
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2191449.356 ± 405088.856  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10   195198.411 ±  37480.037  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1733823.527 ± 526463.941  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  2832819.684 ± 791310.719  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   898844.327 ± 184090.618  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10    58322.618 ±   6505.121  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10   118490.002 ±  21500.755  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  5211745.483 ± 672226.456  ops/s
 ```
 
-
-**Partitioned Txn Keeper**
-```java
-
-Benchmark                                       Mode  Cnt       Score        Error  Units
-DisjointKeyBenchmark.txMap_batch_1thread       thrpt   10  245845.865 ±  53340.510  ops/s
-DisjointKeyBenchmark.txMap_batch_2threads      thrpt   10  430295.861 ± 146766.955  ops/s
-DisjointKeyBenchmark.txMap_batch_4threads      thrpt   10  680506.009 ± 143208.922  ops/s
-DisjointKeyBenchmark.txMap_batch_8threads      thrpt   10  900128.367 ± 133880.846  ops/s
-DisjointKeyBenchmark.txMap_put_1thread         thrpt   10  277428.180 ± 116399.799  ops/s
-DisjointKeyBenchmark.txMap_put_2threads        thrpt   10  543302.434 ± 219156.569  ops/s
-DisjointKeyBenchmark.txMap_put_4threads        thrpt   10  870061.701 ± 224677.948  ops/s
-DisjointKeyBenchmark.txMap_put_8threads        thrpt   10  931392.824 ± 602961.203  ops/s
-```
+To find the issue, I looked at my profile data, and found `minActiveEpoch()` as a hotspot at 2 threads. The current issue is we scan the entire map for the min active epoch, ideally this shouldn't take too long but as the map grows, could become a bottle neck
