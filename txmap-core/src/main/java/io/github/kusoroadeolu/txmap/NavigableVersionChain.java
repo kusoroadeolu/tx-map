@@ -31,8 +31,12 @@ public class NavigableVersionChain<E> implements VersionChain<E> {
     public Version<E> findOverlap(long tBegin) {
         var ls = this.latest;
 
-        //In the case where a writer modifies endTs before it is visible to us, we can fallback to the oLog(N) scenario
-        if(ls != null && (tBegin >= ls.beginTs && tBegin < ls.endTs)) return ls;
+        //This is probably racy, in the case where a writer modifies endTs before it is visible to us, we can fallback to the oLog(N) scenario
+
+        if (ls != null){
+            long endTs = ls.endTs;
+            if((tBegin >= ls.beginTs && tBegin < endTs)) return ls;
+        }
 
         Map.Entry<Long, Version<E>> entry = versionMap.floorEntry(tBegin); // version.beginTs <= tBegin
         if (entry == null) return null;

@@ -108,7 +108,7 @@ ContentionBenchmark.writeHeavy_4threads      thrpt   10   944841.844 ± 321298.0
 ContentionBenchmark.writeHeavy_8threads      thrpt   10   764114.028 ± 472135.579  ops/s
 ```
 
-Looking at my profiled data again, I realized submitting requests to the GC Thread was still a hotspot, so I decided to spread out the frequency in which requests are submitted and batch requests as well
+Looking at my profiled data again, I realized submitting requests to the GC Thread was still a hotspot, so I decided to spread out the frequency in which requests are submitted
 ```java
 Benchmark                                     Mode  Cnt        Score        Error  Units
 ContentionBenchmark.readHeavy_1thread        thrpt   10  1499641.094 ± 186580.267  ops/s
@@ -136,3 +136,31 @@ ContentionBenchmark.writeHeavy_4threads      thrpt   10   826926.873 ± 149437.0
 ContentionBenchmark.writeHeavy_8threads      thrpt   10  1026862.457 ± 520060.221  ops/s
 ```
 My scaling basically inverted with my lowest thrpt for both operations being at one thread and the highest being at > 2 threads
+
+
+I then realized maybe using my background threads as virtual threads was causing the high variance, so I decided to run with my background threads as platform threads
+**Segmented Active Txn Keeper**
+```javaBenchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10   543983.955 ± 133134.608  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1020562.096 ± 131954.153  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1632501.353 ± 197194.523  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  1444733.689 ± 652337.205  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   335078.800 ± 128993.334  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   580449.127 ± 110305.596  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10   864819.719 ± 159350.383  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  1120983.469 ± 783465.405  ops/s
+```
+
+**Active Txn Keeper**
+```java
+ContentionBenchmark.readHeavy_1thread        thrpt   10  1251410.402 ± 170242.439  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1619555.645 ± 107851.864  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1345362.000 ± 445030.583  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10   784240.432 ± 407925.752  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   640249.753 ± 110217.595  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   813339.356 ± 155722.320  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  1011854.484 ± 452289.869  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10   927350.663 ± 194550.049  ops/s
+```
+
+I think I'll stick with the active transaction keeper. The partitioned lock keeper adds complexity without much benefit

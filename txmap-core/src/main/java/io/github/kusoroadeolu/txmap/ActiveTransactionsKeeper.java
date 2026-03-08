@@ -11,14 +11,14 @@ import java.util.concurrent.ConcurrentMap;
 public class ActiveTransactionsKeeper {
     private final ConcurrentMap<TransactionID, Long> map;
     private final Queue<ModifyRequest> requests;
-    private final Thread.Builder.OfVirtual thread;
+    private final Thread.Builder.OfPlatform thread;
     private volatile boolean stop = false;
     private volatile long minActiveTBegin = Long.MAX_VALUE;
 
     public ActiveTransactionsKeeper() {
         this.map = new ConcurrentHashMap<>();
         this.requests = new ConcurrentLinkedQueue<>();
-        this.thread = Thread.ofVirtual();
+        this.thread = Thread.ofPlatform();
         this.start();
     }
 

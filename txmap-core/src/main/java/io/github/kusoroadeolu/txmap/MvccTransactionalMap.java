@@ -16,7 +16,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final ConcurrentMap<K, VersionChain<V>> underlying;
     private final ConcurrentMap<K, KeyStatus> status; //Keeping the status to the key
     private final TransactionIDGenerator idGenerator;
-    private final PartitionedActiveTransactionKeeper activeTransactions;
+    private final ActiveTransactionsKeeper activeTransactions;
     private final BackgroundGCThread<K, V> gcThread;
     private static final int VERSION_THRESHOLD = 100;
 
@@ -24,7 +24,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         this.commitNumberGenerator = new CommitNumberGenerator();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
-        this.activeTransactions = new PartitionedActiveTransactionKeeper();
+        this.activeTransactions = new ActiveTransactionsKeeper();
         this.idGenerator = new TransactionIDGenerator();
         this.gcThread = new BackgroundGCThread<>(underlying);
     }
@@ -247,8 +247,6 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 this.mvccTx = mvccTx;
                 this.future = new FutureValue<>();
             }
-
-            @SuppressWarnings("unchecked")
             public void apply() {
                 var versionChain = mvccTx.map.versionChain(key);
                 var prev =  versionChain.enqueueNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
@@ -257,7 +255,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 //Removing previous versions
                 if (versionChain.size() % VERSION_THRESHOLD == 0){
                     long minActiveTBegin = mvccTx.map.activeTransactions.minActiveTBegin();
-                    gcBatch.get().add(new CleanupRequest<>(key, minActiveTBegin), (BackgroundGCThread<Object, Object>) mvccTx.map.gcThread);
+                    mvccTx.map.gcThread.submitBatchRequest(key, minActiveTBegin);
                 }
             }
         }
@@ -301,7 +299,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                        if (seen == null) yield null;
                        else yield seen.e();
                     }
-                    case SIZE -> mvccTx.map.underlying.size(); //Dirty reads are allowed for size, no way to really keep a version chain for size, even if we can, not worth the complexity
+                    case SIZE -> mvccTx.map.underlying.size() ; //Dirty reads are allowed for size, no way to really keep a version chain for size, even if we can, not worth the complexity
                     case CONTAINS -> seen != null && seen.e() != null;
                 };
 
@@ -317,9 +315,6 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             void apply();
         }
     }
-
-
-    private static final ThreadLocal<BatchCleanupReq<Object, Object>> gcBatch = ThreadLocal.withInitial(BatchCleanupReq::new);
 
 
 }
