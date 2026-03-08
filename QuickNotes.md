@@ -140,7 +140,8 @@ My scaling basically inverted with my lowest thrpt for both operations being at 
 
 I then realized maybe using my background threads as virtual threads was causing the high variance, so I decided to run with my background threads as platform threads
 **Segmented Active Txn Keeper**
-```javaBenchmark                                     Mode  Cnt        Score        Error  Units
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
 ContentionBenchmark.readHeavy_1thread        thrpt   10   543983.955 ± 133134.608  ops/s
 ContentionBenchmark.readHeavy_2threads       thrpt   10  1020562.096 ± 131954.153  ops/s
 ContentionBenchmark.readHeavy_4threads       thrpt   10  1632501.353 ± 197194.523  ops/s
@@ -163,4 +164,32 @@ ContentionBenchmark.writeHeavy_4threads      thrpt   10  1011854.484 ± 452289.8
 ContentionBenchmark.writeHeavy_8threads      thrpt   10   927350.663 ± 194550.049  ops/s
 ```
 
-I think I'll stick with the active transaction keeper. The partitioned lock keeper adds complexity without much benefit
+
+### 
+**Active Txn Keeper**
+```java
+Benchmark                                       Mode  Cnt        Score        Error  Units
+DisjointKeyBenchmark.txMap_batch_1thread       thrpt   10   491596.054 ±  88686.322  ops/s
+DisjointKeyBenchmark.txMap_batch_2threads      thrpt   10   634597.861 ± 106996.382  ops/s
+DisjointKeyBenchmark.txMap_batch_4threads      thrpt   10   916953.080 ± 170427.572  ops/s
+DisjointKeyBenchmark.txMap_batch_8threads      thrpt   10   639487.244 ± 200852.136  ops/s
+DisjointKeyBenchmark.txMap_put_1thread         thrpt   10   672616.701 ± 137058.754  ops/s
+DisjointKeyBenchmark.txMap_put_2threads        thrpt   10   828952.755 ±  98710.322  ops/s
+DisjointKeyBenchmark.txMap_put_4threads        thrpt   10  1131247.738 ± 113252.474  ops/s
+DisjointKeyBenchmark.txMap_put_8threads        thrpt   10   688941.792 ± 173558.902  ops/s
+```
+
+
+**Partitioned Txn Keeper**
+```java
+
+Benchmark                                       Mode  Cnt       Score        Error  Units
+DisjointKeyBenchmark.txMap_batch_1thread       thrpt   10  245845.865 ±  53340.510  ops/s
+DisjointKeyBenchmark.txMap_batch_2threads      thrpt   10  430295.861 ± 146766.955  ops/s
+DisjointKeyBenchmark.txMap_batch_4threads      thrpt   10  680506.009 ± 143208.922  ops/s
+DisjointKeyBenchmark.txMap_batch_8threads      thrpt   10  900128.367 ± 133880.846  ops/s
+DisjointKeyBenchmark.txMap_put_1thread         thrpt   10  277428.180 ± 116399.799  ops/s
+DisjointKeyBenchmark.txMap_put_2threads        thrpt   10  543302.434 ± 219156.569  ops/s
+DisjointKeyBenchmark.txMap_put_4threads        thrpt   10  870061.701 ± 224677.948  ops/s
+DisjointKeyBenchmark.txMap_put_8threads        thrpt   10  931392.824 ± 602961.203  ops/s
+```
