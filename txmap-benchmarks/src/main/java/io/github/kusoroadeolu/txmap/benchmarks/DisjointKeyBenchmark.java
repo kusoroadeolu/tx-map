@@ -3,6 +3,9 @@ package io.github.kusoroadeolu.txmap.benchmarks;
 import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -84,11 +87,11 @@ public class DisjointKeyBenchmark {
         txMap_put(ts, bh);
     }
 
-    @Benchmark
-    @Threads(16)
-    public void txMap_put_16threads(ThreadState ts, Blackhole bh) {
-        txMap_put(ts, bh);
-    }
+//    @Benchmark
+//    @Threads(16)
+//    public void txMap_put_16threads(ThreadState ts, Blackhole bh) {
+//        txMap_put(ts, bh);
+//    }
 
     // -------------------------------------------------------------------------
     // Batch op (put + get + containsKey) — txMap
@@ -118,11 +121,11 @@ public class DisjointKeyBenchmark {
         txMap_batch(ts, bh);
     }
 
-    @Benchmark
-    @Threads(16)
-    public void txMap_batch_16threads(ThreadState ts, Blackhole bh) {
-        txMap_batch(ts, bh);
-    }
+//    @Benchmark
+//    @Threads(16)
+//    public void txMap_batch_16threads(ThreadState ts, Blackhole bh) {
+//        txMap_batch(ts, bh);
+//    }
 
 
 
@@ -150,5 +153,13 @@ public class DisjointKeyBenchmark {
         }
     }
 
-
+    static class JMHRunner{
+        void main() throws Exception {
+            Options opt = new OptionsBuilder()
+                    .include(DisjointKeyBenchmark.class.getSimpleName())
+                    .addProfiler("jfr", "dir=C:\\jfr-output-dj")
+                    .build();
+            new Runner(opt).run();
+        }
+    }
 }

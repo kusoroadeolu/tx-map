@@ -24,18 +24,6 @@ public class Version<E>{
             return e;
         }
 
-        public int versionNo() {
-            return versionNo;
-        }
-
-        public long beginTs() {
-            return beginTs;
-        }
-
-        public long endTs() {
-            return endTs;
-        }
-
         @Override
         public String toString() {
             return "Version{" +

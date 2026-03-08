@@ -26,22 +26,6 @@ import java.util.concurrent.TimeUnit;
  *  - How throughput degrades as thread count and write ratio increase
  *  - Whether write-heavy + high threads causes throughput to collapse
  */
-/*
-* Benchmark                                 Mode  Cnt        Score        Error  Units
-ContentionBenchmark.balanced_1thread     thrpt   10   867721.961 ± 315544.095  ops/s
-ContentionBenchmark.balanced_2threads    thrpt   10  1022766.460 ± 196795.874  ops/s
-ContentionBenchmark.balanced_4threads    thrpt   10   650645.544 ± 203857.492  ops/s
-ContentionBenchmark.balanced_8threads    thrpt   10   498178.960 ± 187042.209  ops/s
-ContentionBenchmark.readHeavy_1thread    thrpt   10  1266642.451 ± 304989.799  ops/s
-ContentionBenchmark.readHeavy_2threads   thrpt   10  1618470.600 ± 139661.272  ops/s
-ContentionBenchmark.readHeavy_4threads   thrpt   10   999253.579 ±  28831.378  ops/s
-ContentionBenchmark.readHeavy_8threads   thrpt   10   701199.276 ± 236488.421  ops/s
-ContentionBenchmark.writeHeavy_1thread   thrpt   10   883039.762 ±  91229.210  ops/s
-ContentionBenchmark.writeHeavy_2threads  thrpt   10   969683.192 ± 403437.561  ops/s
-ContentionBenchmark.writeHeavy_4threads  thrpt   10   376637.494 ±  68776.718  ops/s
-ContentionBenchmark.writeHeavy_8threads  thrpt   10   340917.224 ±  77466.989  ops/s
-*
-* */
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
@@ -64,7 +48,7 @@ public class ContentionBenchmark {
     // -------------------------------------------------------------------------
 
     @State(Scope.Thread)
-    @AuxCounters(AuxCounters.Type.EVENTS)
+    //@AuxCounters(AuxCounters.Type.EVENTS)
     public static class ThreadState {
         // Simple round-robin index for key selection — spreads load evenly
         int keyIndex = 0;
@@ -189,7 +173,8 @@ public class ContentionBenchmark {
         void main() throws Exception {
             Options opt = new OptionsBuilder()
                     .include(ContentionBenchmark.class.getSimpleName())
-                    .addProfiler("jfr", "dir=C:\\jfr-output").build();
+                    .addProfiler("jfr", "dir=C:\\jfr-output")
+                    .build();
             new Runner(opt).run();
         }
     }

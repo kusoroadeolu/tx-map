@@ -1,7 +1,7 @@
 ## Improving perf of my MVCC TxMap
 Initially my MVCC txMap had good read numbers for thrpt and decent write numbers, though the err margins for the write numbers were bad, so I decided to investigate, while investigating, I encountered an issue
 1. OOME under contention.
-Note that Active transactions isnt my garbage collecting algorithm, rather my epoch tracking class, meaning it tracks the current minimum epoch needed for my GC to clean up old versions
+**NOTE:** that Active transactions isnt my garbage collecting algorithm, rather my epoch tracking class, meaning it tracks the current minimum epoch needed for my actual GC thread to clean up old versions
 ```java
 ActiveTransactions activeTxns = mvccTx.map.activeTransactions.copy(); //We're getting a copy to prevent any race conditions while we're searching for the lowest tBegin
 long minActiveTBegin = activeTxns.findMinActiveTBegin(); 
@@ -81,3 +81,44 @@ ContentionBenchmark.writeHeavy_2threads          thrpt   10      9548.036 ±   6
 ContentionBenchmark.writeHeavy_4threads          thrpt   10     25872.105 ±  13197.781  ops/s
 ContentionBenchmark.writeHeavy_8threads          thrpt   10   1132311.163 ± 285098.340  ops/s
 ```
+
+After looking through my profile data, I realized that garbage collecting on a writer transaction thread was causing a lot of CPU spikes, so I decided to move GC to a background thread, and the writer txn thread instead submits a cleanup request to the gc thread when the version chain depth reaches a certain threshold
+```java
+Benchmark                                         Mode  Cnt         Score        Error  Units
+ContentionBenchmark.readHeavy_1thread            thrpt   10    864770.978 ± 123348.212  o[profile.jfr](../../../../../jfr-output/io.github.kusoroadeolu.txmap.benchmarks.ContentionBenchmark.readHeavy_8threads-Throughput/profile.jfr)ps/s
+ContentionBenchmark.readHeavy_2threads           thrpt   10   1187432.216 ± 171323.762  ops/s
+ContentionBenchmark.readHeavy_4threads           thrpt   10    827029.790 ± 525292.066  ops/s
+ContentionBenchmark.readHeavy_8threads           thrpt   10    661419.334 ± 215284.213  ops/s
+ContentionBenchmark.writeHeavy_1thread           thrpt   10    476757.401 ±  91269.885  ops/s
+ContentionBenchmark.writeHeavy_2threads          thrpt   10    622144.154 ± 155951.737  ops/s
+ContentionBenchmark.writeHeavy_4threads          thrpt   10    767387.142 ± 171878.776  ops/s
+ContentionBenchmark.writeHeavy_8threads          thrpt   10    819022.141 ± 337489.007  ops/s
+```
+
+I then decided to cache the min active endTs timestamp in my version chain, to prevent redundant iterations through my version chain
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  1384520.967 ± 151058.220  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1559840.856 ± 361048.003  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1328777.375 ± 619468.965  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10   843850.257 ± 241581.930  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   527538.045 ± 160021.700  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   836844.450 ±  95255.683  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10   944841.844 ± 321298.094  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10   764114.028 ± 472135.579  ops/s
+```
+
+Looking at my profiled data again, I realized submitting requests to the GC Thread was still a hotspot, so I decided to spread out the frequency in which requests are submitted and batch requests as well
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  1499641.094 ± 186580.267  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1800303.740 ± 160148.052  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1420702.483 ± 566203.194  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10   828145.076 ± 393441.472  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   654820.291 ± 132849.682  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   895029.640 ± 125955.480  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10   987045.255 ± 437727.460  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10   853466.979 ± 556489.961  ops/s
+```
+
+As we can see, the write numbers improved a bit, and the error margins also decreased a bit

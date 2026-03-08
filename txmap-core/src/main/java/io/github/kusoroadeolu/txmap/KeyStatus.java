@@ -18,13 +18,12 @@ public class KeyStatus {
     }
 
 
-    public boolean setNotHeld(TransactionID id){
+    public void setNotHeld(TransactionID id){
         Status s = status.get();
         if (s.txnId == id.txnId()){
-            return this.status.compareAndSet(s, NOT_HELD); //Ideally a set release should work well here, just to prevent me from abusing the api and concurrency bugs
+            this.status.setRelease(NOT_HELD);
         }
 
-        return false;
     }
 
      <K, V> boolean isOwnedBy(MvccTx<K,V> kvMvccTx) {

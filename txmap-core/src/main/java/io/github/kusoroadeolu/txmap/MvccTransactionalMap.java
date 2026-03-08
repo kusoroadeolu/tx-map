@@ -2,9 +2,7 @@ package io.github.kusoroadeolu.txmap;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -18,15 +16,17 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final ConcurrentMap<K, VersionChain<V>> underlying;
     private final ConcurrentMap<K, KeyStatus> status; //Keeping the status to the key
     private final TransactionIDGenerator idGenerator;
-    private final ActiveTransactions activeTransactions;
+    private final ActiveTransactionsKeeper activeTransactions;
+    private final BackgroundGCThread<K, V> gcThread;
     private static final int VERSION_THRESHOLD = 100;
 
     public MvccTransactionalMap() {
         this.commitNumberGenerator = new CommitNumberGenerator();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
-        this.activeTransactions = new ActiveTransactions();
+        this.activeTransactions = new ActiveTransactionsKeeper();
         this.idGenerator = new TransactionIDGenerator();
+        this.gcThread = new BackgroundGCThread<>(underlying);
     }
 
     KeyStatus keyStatus(K key){
@@ -56,8 +56,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         private final TransactionID txnId; //The transaction id
         private final long tBegin; // The current txcommit number at the transaction start time
         private long tCommit; //Txcommit number assigned at validation time
-        private final Set<WriteOperation<K, V>> writeSet;
-        private final Set<ReadOperation<K, Object>> readSet;
+        private final List<WriteOperation<K, V>> writeSet;
+        private final List<ReadOperation<K, Object>> readSet;
         private TransactionState state = TransactionState.IN_PROGRESS;
 
 
@@ -66,8 +66,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             this.txnId = new TransactionID(map.idGenerator.newId());
             this.tBegin = map.commitNumberGenerator.currentCommitNo();
             map.activeTransactions.put(txnId, tBegin);
-            this.readSet = new HashSet<>();
-            this.writeSet = new HashSet<>();
+            this.readSet = new ArrayList<>(4);
+            this.writeSet = new ArrayList<>(4);
         }
 
         @Override
@@ -242,15 +242,16 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 this.future = new FutureValue<>();
             }
 
+            @SuppressWarnings("unchecked")
             public void apply() {
                 var versionChain = mvccTx.map.versionChain(key);
                 var prev =  versionChain.enqueueNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
                 future.complete(Option.ofNullable(prev));
 
                 //Removing previous versions
-                if (versionChain.size() >= VERSION_THRESHOLD){
+                if (versionChain.size() % VERSION_THRESHOLD == 0){
                     long minActiveTBegin = mvccTx.map.activeTransactions.findMinActiveTBegin();
-                    versionChain.removeUnreachableVersions(minActiveTBegin);
+                    gcBatch.get().add(new CleanupRequest<>(key, minActiveTBegin), (BackgroundGCThread<Object, Object>) mvccTx.map.gcThread);
                 }
             }
         }
@@ -310,4 +311,9 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             void apply();
         }
     }
+
+
+    private static final ThreadLocal<BatchCleanupReq<Object, Object>> gcBatch = ThreadLocal.withInitial(BatchCleanupReq::new);
+
+
 }
