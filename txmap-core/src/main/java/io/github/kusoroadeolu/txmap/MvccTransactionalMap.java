@@ -1,6 +1,8 @@
 package io.github.kusoroadeolu.txmap;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
+import io.github.kusoroadeolu.txmap.vchain.NavigableVersionChain;
+import io.github.kusoroadeolu.txmap.vchain.Version;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,17 +18,15 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final ConcurrentMap<K, VersionChain<V>> underlying;
     private final ConcurrentMap<K, KeyStatus> status; //Keeping the status to the key
     private final TransactionIDGenerator idGenerator;
-   // private final ActiveTransactionsKeeper activeTransactions;
-    private final BackgroundGCThread<K, V> gcThread;
+    private final GCThread<K, V> gcThread;
     private static final int VERSION_THRESHOLD = 100;
 
     public MvccTransactionalMap() {
-        this.epochTracker = new EpochTracker();
+        this.epochTracker = new DefaultEpochTracker();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
-    //    this.activeTransactions = new ActiveTransactionsKeeper();
         this.idGenerator = new TransactionIDGenerator();
-        this.gcThread = new BackgroundGCThread<>(underlying);
+        this.gcThread = new GCThread<>(underlying, epochTracker);
     }
 
     KeyStatus keyStatus(K key){
@@ -179,7 +179,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
         public void validate(){
             if (isAborted()) return;
-            tCommit = map.epochTracker.newCommitNo();
+            tCommit = map.epochTracker.newEpoch();
             for (ReadOperation<K, Object> readOperation : readSet){
                 readOperation.validate();
             }
@@ -252,8 +252,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
                 //Removing previous versions
                 if (versionChain.size() % VERSION_THRESHOLD == 0){
-                    long minActiveTBegin = mvccTx.map.epochTracker.minActiveEpoch();
-                    mvccTx.map.gcThread.submitBatchRequest(key, minActiveTBegin);
+                    mvccTx.map.gcThread.submitCleanupRequest(key);
                 }
             }
         }

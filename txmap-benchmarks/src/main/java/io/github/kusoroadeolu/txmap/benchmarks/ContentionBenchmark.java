@@ -37,7 +37,6 @@ import java.util.concurrent.TimeUnit;
 })
 public class ContentionBenchmark {
 
-    // Small fixed key pool — all threads compete over these
     private static final String[] KEYS = {"key-0", "key-1", "key-2", "key-3"};
 
     private TransactionalMap<String, Integer> txMap;
@@ -46,7 +45,6 @@ public class ContentionBenchmark {
     @State(Scope.Thread)
     //@AuxCounters(AuxCounters.Type.EVENTS)
     public static class ThreadState {
-        // Simple round-robin index for key selection — spreads load evenly
         int keyIndex = 0;
         int opIndex  = 0;   // Used to decide read vs write based on ratio
         public long commits = 0;
@@ -62,7 +60,6 @@ public class ContentionBenchmark {
     @Setup(Level.Trial)
     public void setup() {
         txMap = TransactionalMap.create();
-        // Pre-populate all keys so removes and gets have something to work with
         try (var tx = txMap.beginTx()) {
             for (String key : KEYS) tx.put(key, 0);
             tx.commit();

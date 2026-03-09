@@ -4,4 +4,6 @@ module txmap.core {
     requires java.management;
     requires java.rmi;
     exports io.github.kusoroadeolu.txmap;
+    exports io.github.kusoroadeolu.txmap.txkeeper;
+    exports io.github.kusoroadeolu.txmap.vchain;
 }

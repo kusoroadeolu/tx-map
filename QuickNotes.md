@@ -193,3 +193,31 @@ ContentionBenchmark.writeHeavy_2threads      thrpt   10   695208.420 ± 182427.9
 ContentionBenchmark.writeHeavy_4threads      thrpt   10   905598.677 ± 107143.027  ops/s
 ContentionBenchmark.writeHeavy_8threads      thrpt   10  1438306.517 ± 376373.683  ops/s
 ```
+
+I then decided to cache and schedule `minEpoch()` reads(at 100ms per read) in my GC thread (rather than reading from the submitting writer txn thread anytime I submit a request to the GC thread), moving the reads of the writer path, but trading thrpt over perfect precision
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2426304.887 ± 259332.240  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1138292.934 ±  71983.527  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1297350.055 ± 173150.260  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  1581116.656 ± 142358.242  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   831511.799 ± 272854.879  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   651383.441 ± 125000.038  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10   864550.813 ± 102841.781  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  1133963.803 ± 371369.241  ops/s
+```
+
+Since reads were scheduled and cached and off the hotpath (the main writer txn thread), I decided to move back to a normal concurrent hashmap, and compare results
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2033144.625 ± 384180.964  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1588018.927 ± 270740.481  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1729477.638 ± 222670.776  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  2155201.736 ± 367418.564  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   806951.062 ± 230957.839  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   736237.004 ± 198644.974  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  1163394.531 ± 183420.198  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  1664437.392 ± 348898.556  ops/s
+```
+
+My current hotspot across all benchmarks right now, is in my `computeIfAbsent()` call, anytime a transaction(at creation time) requests for their current epoch(i.e. tBegin)

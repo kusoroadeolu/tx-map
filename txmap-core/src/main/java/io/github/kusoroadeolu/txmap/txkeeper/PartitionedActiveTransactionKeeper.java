@@ -1,4 +1,6 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.txkeeper;
+
+import io.github.kusoroadeolu.txmap.TransactionID;
 
 public class PartitionedActiveTransactionKeeper {
     private static final int CPU = Runtime.getRuntime().availableProcessors();

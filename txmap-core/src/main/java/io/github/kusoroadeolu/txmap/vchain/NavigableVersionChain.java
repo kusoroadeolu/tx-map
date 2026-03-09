@@ -1,4 +1,7 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.vchain;
+
+import io.github.kusoroadeolu.txmap.TransactionID;
+import io.github.kusoroadeolu.txmap.VersionChain;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;

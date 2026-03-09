@@ -1,4 +1,6 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.txkeeper;
+
+import io.github.kusoroadeolu.txmap.TransactionID;
 
 import java.util.Collection;
 import java.util.Queue;

@@ -1,10 +1,13 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.vchain;
+
+import io.github.kusoroadeolu.txmap.TransactionID;
+import io.github.kusoroadeolu.txmap.VersionChain;
 
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-public class QueueVersionChain<E> implements VersionChain<E>{
+public class QueueVersionChain<E> implements VersionChain<E> {
     private final Deque<Version<E>> versionQueue;
     private int currentVersion = 0; //Should only be incremented by the lock holder
     private volatile Version<E> latest;

@@ -1,4 +1,6 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.vchain;
+
+import io.github.kusoroadeolu.txmap.TransactionID;
 
 /*
 * 12, 4(Object header plus ), 4,4,
