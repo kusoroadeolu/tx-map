@@ -105,9 +105,9 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
         }
 
         @SuppressWarnings("unchecked")
-        public FutureValue<V> get(K key) {
+        public FutureValue<Option<V>> get(K key) {
             var future = new FutureValue<V>();
-            return (FutureValue<V>) this.registerReadOp(key, GET, future);
+            return (FutureValue<Option<V>>) this.registerReadOp(key, GET, future);
         }
 
         @SuppressWarnings("unchecked")
@@ -264,28 +264,28 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
                     }else{
                         prevOpt = Option.ofNullable(underlying.remove(key));
                     }
-                    cmtx.state = TransactionState.COMMITTED;
                     cmtx.future.complete(prevOpt);
+                    cmtx.state = TransactionState.COMMITTED;
                 }
 
 
                 case Operation.GetOperation _ -> {
                     var v = underlying.get(keyOption.unwrap());
                     Option<V> opt = Option.ofNullable(v);
-                    cmtx.state = TransactionState.COMMITTED;
                     cmtx.future.complete(opt);
+                    cmtx.state = TransactionState.COMMITTED;
                 }
 
                 case Operation.ContainsKeyOperation _ -> {
                     boolean contains = underlying.containsKey(keyOption.unwrap());
-                    cmtx.state = TransactionState.COMMITTED;
                     cmtx.future.complete(contains);
+                    cmtx.state = TransactionState.COMMITTED;
                 }
 
                 case Operation.SizeOperation _ -> {
                     int size = underlying.size();
-                    cmtx.state = TransactionState.COMMITTED;
                     cmtx.future.complete(size);
+                    cmtx.state = TransactionState.COMMITTED;
                 }
 
             }
@@ -317,7 +317,7 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
             switch (op){
                 case ModifyOperation<?> mo -> {
                     this.orderThenAcquireKeys(mo);
-                    this.handleWriteOps(txMap, key.unwrap(), mo);
+                    this.doWrite(txMap, key.unwrap(), mo);
                     cmtx.state = TransactionState.VALIDATED;
                 }
 
@@ -327,7 +327,7 @@ public class OptimisticTransactionalMap<K, V> implements TransactionalMap<K, V> 
         }
 
 
-        void handleWriteOps(OptimisticTransactionalMap<K, V> txMap, K key, ModifyOperation<?> op){
+        void doWrite(OptimisticTransactionalMap<K, V> txMap, K key, ModifyOperation<?> op){
             var heldLocks = cmtx.parent.heldLocks;
             //Take the get lock first
             var getSet = txMap.keyToLockers.getOrCreate(key, GET);
