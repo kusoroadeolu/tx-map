@@ -252,7 +252,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
                 //Removing previous versions
                 if (versionChain.size() % VERSION_THRESHOLD == 0){
-                    long minActiveTBegin = mvccTx.map.epochTracker.minActiveTBegin();
+                    long minActiveTBegin = mvccTx.map.epochTracker.minActiveEpoch();
                     mvccTx.map.gcThread.submitBatchRequest(key, minActiveTBegin);
                 }
             }

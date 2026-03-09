@@ -1,16 +1,16 @@
 package io.github.kusoroadeolu.txmap;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.SortedMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class EpochTracker {
     private final AtomicLong currentEpoch;
-    private final ConcurrentMap<Long, AtomicLong> activeTxs;
+    private final SortedMap<Long, AtomicLong> activeTxs;
 
     public EpochTracker() {
         this.currentEpoch = new AtomicLong();
-        this.activeTxs = new ConcurrentHashMap<>();
+        this.activeTxs = new ConcurrentSkipListMap<>();
     }
 
     public long newCommitNo(){
@@ -33,11 +33,10 @@ public class EpochTracker {
     }
 
     //Find the minimum active epoch
-    public long minActiveTBegin(){
-        return activeTxs.keySet().stream()
-                .min(Long::compare)
-                .orElse(currentEpoch.get());
+    public long minActiveEpoch(){
+        return activeTxs.isEmpty()
+                ? currentEpoch.get()
+                : activeTxs.firstKey();
     }
-
 
 }

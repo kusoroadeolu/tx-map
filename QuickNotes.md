@@ -179,3 +179,17 @@ ContentionBenchmark.writeHeavy_8threads      thrpt   10  5211745.483 ± 672226.4
 ```
 
 To find the issue, I looked at my profile data, and found `minActiveEpoch()` as a hotspot at 2 threads. The current issue is we scan the entire map for the min active epoch, ideally this shouldn't take too long but as the map grows, could become a bottle neck
+
+I then decided to use a sorted concurrent map for more expensive writes but cheaper reads, and my data actually improved a lot, with stable variance across all thread counts
+
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2189669.131 ± 219454.082  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1209368.581 ± 118708.165  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1390759.022 ± 138734.722  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  1831714.755 ± 209719.251  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   863360.164 ± 174821.023  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   695208.420 ± 182427.969  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10   905598.677 ± 107143.027  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  1438306.517 ± 376373.683  ops/s
+```
