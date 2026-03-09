@@ -7,6 +7,10 @@ import io.github.kusoroadeolu.txmap.vchain.Version;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static io.github.kusoroadeolu.txmap.MvccTransactionalMap.MvccTx.WriteOperation.WriteType.PUT;
+import static io.github.kusoroadeolu.txmap.MvccTransactionalMap.MvccTx.WriteOperation.WriteType.REMOVE;
 
 
 //Append only storage
@@ -20,6 +24,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final TransactionIDGenerator idGenerator;
     private final GCThread<K, V> gcThread;
     private static final int VERSION_THRESHOLD = 100;
+    private final AtomicInteger size;
 
     public MvccTransactionalMap() {
         this.epochTracker = new DefaultEpochTracker();
@@ -27,6 +32,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         this.underlying = new ConcurrentHashMap<>();
         this.idGenerator = new TransactionIDGenerator();
         this.gcThread = new GCThread<>(underlying, epochTracker);
+        this.size = new AtomicInteger();
     }
 
     KeyStatus keyStatus(K key){
@@ -42,7 +48,9 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     public VersionChain<V> versionChain(K key){
         var vMap = underlying;
         VersionChain<V> versionChain = vMap.get(key);
-        if(versionChain == null) versionChain = vMap.computeIfAbsent(key, _ -> new NavigableVersionChain<>());
+        if(versionChain == null) {
+            versionChain = vMap.computeIfAbsent(key, _ -> new NavigableVersionChain<>()); //No removals so no race conditions
+        }
         return versionChain;
     }
 
@@ -63,6 +71,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         private long tCommit; //Txcommit number assigned at validation time
         private final List<WriteOperation<K, V>> writeSet;
         private final List<ReadOperation<K, Object>> readSet;
+        private final AtomicInteger size;
         private TransactionState state = TransactionState.IN_PROGRESS;
 
 
@@ -72,21 +81,22 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             this.tBegin = map.epochTracker.currentEpoch();
             this.readSet = new ArrayList<>(4);
             this.writeSet = new ArrayList<>(4);
+            this.size = map.size;
         }
 
         @Override
         public FutureValue<Option<V>> put(K key, V value) {
-            return this.doWrite(key, value);
+            return this.doWrite(key, value, PUT);
         }
 
         @Override
         public FutureValue<Option<V>> remove(K key) {
-            return this.doWrite(key, null);
+            return this.doWrite(key, null, REMOVE);
         }
 
 
 
-        FutureValue<Option<V>> doWrite(K key, V value){
+        FutureValue<Option<V>> doWrite(K key, V value, WriteOperation.WriteType type){
             if (isAborted()) {
                 return uncompletedFuture();
             }
@@ -98,7 +108,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 return uncompletedFuture();
             }
 
-            WriteOperation<K, V> wo = new WriteOperation<>(key, value, this);
+            WriteOperation<K, V> wo = new WriteOperation<>(key, value, this, type);
             writeSet.add(wo);
 
             VersionChain<V> versionChain = map.versionChain(key);
@@ -233,27 +243,38 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         }
 
 
-        private static class WriteOperation<K, V> implements Operation{
+        static class WriteOperation<K, V> implements Operation{
             private final K key;
             private final V value; //Null for remove types, could probably use K, V but not really worth it since the actual transaction provides compile time safety
             private final MvccTx<K, V> mvccTx;
+            private final WriteType type;
             private final FutureValue<Option<V>> future;
 
-            public WriteOperation(K key, V value, MvccTx<K, V> mvccTx) {
+            public WriteOperation(K key, V value, MvccTx<K, V> mvccTx, WriteType type) {
                 this.key = key;
                 this.value = value;
                 this.mvccTx = mvccTx;
+                this.type = type;
                 this.future = new FutureValue<>();
             }
             public void apply() {
                 var versionChain = mvccTx.map.versionChain(key);
                 var prev =  versionChain.enqueueNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
+
+                if (type == PUT && prev == null) mvccTx.size.incrementAndGet();
+                else if (type == REMOVE && prev != null) mvccTx.size.decrementAndGet();
+
                 future.complete(Option.ofNullable(prev));
 
                 //Removing previous versions
                 if (versionChain.size() % VERSION_THRESHOLD == 0){
                     mvccTx.map.gcThread.submitCleanupRequest(key);
                 }
+            }
+
+
+            enum WriteType{
+                PUT, REMOVE
             }
         }
 
@@ -279,7 +300,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 this.seen = null;
             }
 
-            // We could add read semantic aware validation, but for now lets stick to the paper
+            // We could add read semantic aware validation, but let us stick to the paper
             public void validate(){
                 if (key == null || mvccTx.isAborted()) return; //If this is a size operation
                 Version<V> overlapAtCommit = mvccTx.map.versionChain(key)
@@ -296,7 +317,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                        if (seen == null) yield null;
                        else yield seen.e();
                     }
-                    case SIZE -> mvccTx.map.underlying.size() ; //Dirty reads are allowed for size, no way to really keep a version chain for size, even if we can, not worth the complexity
+                    case SIZE -> mvccTx.map.size.get() ; //Dirty reads are allowed for size, no way to really keep a version chain for size, even if we can, not worth the complexity
                     case CONTAINS -> seen != null && seen.e() != null;
                 };
 
@@ -313,5 +334,6 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         }
     }
 
+    //https://www.vldb.org/pvldb/vol10/p781-Wu.pdf The paper
 
 }
