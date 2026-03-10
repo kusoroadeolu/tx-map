@@ -207,7 +207,10 @@ ContentionBenchmark.writeHeavy_4threads      thrpt   10   864550.813 ± 102841.7
 ContentionBenchmark.writeHeavy_8threads      thrpt   10  1133963.803 ± 371369.241  ops/s
 ```
 
+
 Since reads were scheduled and cached and off the hotpath (the main writer txn thread), I decided to move back to a normal concurrent hashmap, and compare results
+
+Navigable version chain
 ```java
 Benchmark                                     Mode  Cnt        Score        Error  Units
 ContentionBenchmark.readHeavy_1thread        thrpt   10  2033144.625 ± 384180.964  ops/s
@@ -218,6 +221,20 @@ ContentionBenchmark.writeHeavy_1thread       thrpt   10   806951.062 ± 230957.8
 ContentionBenchmark.writeHeavy_2threads      thrpt   10   736237.004 ± 198644.974  ops/s
 ContentionBenchmark.writeHeavy_4threads      thrpt   10  1163394.531 ± 183420.198  ops/s
 ContentionBenchmark.writeHeavy_8threads      thrpt   10  1664437.392 ± 348898.556  ops/s
+```
+
+After looking at my queue version chain, i realized calling size() on each write txn was killing perf, since we had to scan the whole queue to find the size(even with the queue's dead nodes), so I decided to use a long adder to track the size for O(1) calls
+Queue version chain
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2290892.594 ± 491972.988  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  1604327.428 ± 208550.678  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  1891341.883 ± 250730.085  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  1937383.908 ± 501990.327  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10   932853.659 ± 165703.963  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10   966232.277 ± 279759.248  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  1135401.769 ± 380147.279  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  1620440.108 ± 446644.869  ops/s
 ```
 
 My current hotspot across all benchmarks right now, is in my `computeIfAbsent()` call, anytime a transaction(at creation time) requests for their current epoch(i.e. tBegin)

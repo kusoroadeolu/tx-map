@@ -6,18 +6,21 @@ import io.github.kusoroadeolu.txmap.VersionChain;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.LongAdder;
 
 public class QueueVersionChain<E> implements VersionChain<E> {
     private final Deque<Version<E>> versionQueue;
     private int currentVersion = 0; //Should only be incremented by the lock holder
     private volatile Version<E> latest;
     private final EndTsHolder endTsHolder; //Constantly track the minimum of end ts of this version chain
+    private final LongAdder size;
 
 
 
     public QueueVersionChain() {
         this.versionQueue = new ConcurrentLinkedDeque<>();
         this.endTsHolder = new EndTsHolder();
+        this.size = new LongAdder();
     }
 
 
@@ -28,7 +31,8 @@ public class QueueVersionChain<E> implements VersionChain<E> {
     public E enqueueNewVersion(E e, long beginTs, TransactionID txnId) {
         Version<E> prev = this.latest;
         Version<E> newVersion = new Version<>(e, ++currentVersion, beginTs, txnId);
-        versionQueue.addLast(newVersion);
+        versionQueue.add(newVersion);
+        size.increment();
         if (prev != null) prev.setEndTs(beginTs);
         this.latest = newVersion;
         return prev == null ? null : prev.e;
@@ -62,19 +66,19 @@ public class QueueVersionChain<E> implements VersionChain<E> {
         if (tBegin <= endTsHolder.endTs) return;
         endTsHolder.reset(); //Reset the holder everytime, to prevent a situation where we are sitting on an end ts, from a version pruned since
         var ls = this.latest;
-
+        int removed;
         //Excluding the topmost version ofc
         versionQueue.removeIf(version -> {
             boolean shouldRemove = version.endTs < tBegin  && version != ls;
-
             if (!shouldRemove && version.endTs < endTsHolder.endTs) endTsHolder.endTs = version.endTs;
+            else size.decrement();
             return shouldRemove;
         });
     }
 
 
     public int size(){
-        return versionQueue.size();
+        return (int) size.sum();
     }
 
     @Override
@@ -94,4 +98,3 @@ public class QueueVersionChain<E> implements VersionChain<E> {
         }
     }
 }
-

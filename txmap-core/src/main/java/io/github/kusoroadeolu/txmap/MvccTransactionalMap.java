@@ -2,6 +2,7 @@ package io.github.kusoroadeolu.txmap;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.vchain.NavigableVersionChain;
+import io.github.kusoroadeolu.txmap.vchain.QueueVersionChain;
 import io.github.kusoroadeolu.txmap.vchain.Version;
 
 import java.util.*;
@@ -49,7 +50,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         var vMap = underlying;
         VersionChain<V> versionChain = vMap.get(key);
         if(versionChain == null) {
-            versionChain = vMap.computeIfAbsent(key, _ -> new NavigableVersionChain<>()); //No removals so no race conditions
+            versionChain = vMap.computeIfAbsent(key, _ -> new QueueVersionChain<>()); //No removals so no race conditions
         }
         return versionChain;
     }

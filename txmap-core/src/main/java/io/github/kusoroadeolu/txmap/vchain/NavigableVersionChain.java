@@ -7,7 +7,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 public class NavigableVersionChain<E> implements VersionChain<E> {
-    private final NavigableMap<Long, Version<E>> versionMap;
+    private final ConcurrentSkipListMap<Long, Version<E>> versionMap;
     private int currentVersion = 0; //Should only be incremented by the lock holder
     private volatile Version<E> latest;
     private final EndTsHolder endTsHolder; //Constantly track the minimum of end ts of this version chain
@@ -34,7 +34,7 @@ public class NavigableVersionChain<E> implements VersionChain<E> {
     public Version<E> findOverlap(long tBegin) {
         var ls = this.latest;
 
-        //This is probably racy, in the case where a writer modifies endTs before it is visible to us, we can fallback to the oLog(N) scenario
+        //This is racy, in the case where a writer modifies endTs before it is visible to us, we can fallback to the oLog(N) scenario
 
         if (ls != null){
             long endTs = ls.endTs;

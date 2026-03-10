@@ -32,9 +32,9 @@ import java.util.concurrent.TimeUnit;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
-@Warmup(iterations = 5, time = 1)
-@Measurement(iterations = 5, time = 1)
-@Fork(value = 2, jvmArgsPrepend = {
+@Warmup(iterations = 10, time = 1)
+@Measurement(iterations = 10, time = 1)
+@Fork(value = 3, jvmArgsPrepend = {
         "-XX:+UnlockDiagnosticVMOptions",
         "-XX:+DebugNonSafepoints"
 })

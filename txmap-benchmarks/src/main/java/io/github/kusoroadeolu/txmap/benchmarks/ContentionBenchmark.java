@@ -11,25 +11,11 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * Contended key throughput benchmark — multiple threads, small shared key pool.
- *
- * Goal: measure throughput when conflicts are frequent.
- * All threads compete over a fixed pool of 4 keys so collisions are inevitable.
- *
- * Three contention profiles:
- *  - Read heavy  (90% get, 10% put)
- *  - Balanced    (50% get, 50% put)
- *  - Write heavy (10% get, 90% put)
- *
- * What to look for:
- *  - How throughput degrades as thread count and write ratio increase
- *  - Whether write-heavy + high threads causes throughput to collapse
- */
+
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
-@Warmup(iterations = 5, time = 1)
+@Warmup(iterations = 10, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(value = 2, jvmArgsPrepend = {
         "-XX:+UnlockDiagnosticVMOptions",
