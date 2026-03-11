@@ -1,6 +1,7 @@
 package io.github.kusoroadeolu.txmap.benchmarks;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
+import io.github.kusoroadeolu.txmap.FutureValue;
 import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
@@ -192,7 +193,7 @@ public class ZipfianBenchmark {
 
     private void doOp(String key, boolean isWrite, ThreadState ts, Blackhole bh) {
         try (var tx = txMap.beginTx()) {
-            io.github.kusoroadeolu.txmap.FutureValue<Option<Integer>> future;
+            FutureValue<Integer> future;
             if (isWrite) future = tx.put(key, 42);
             else         future = tx.get(key);
             tx.commit();

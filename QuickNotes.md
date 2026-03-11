@@ -239,57 +239,77 @@ ContentionBenchmark.writeHeavy_8threads      thrpt   10  1620440.108 ± 446644.8
 
 My current hotspot across all benchmarks right now, is in my `computeIfAbsent()` call, anytime a transaction(at creation time) requests for their current epoch(i.e. tBegin)
 
+I then decided to try something a bit different, I decided to build a thread local epoch tracker, to handle to compute if absent hotpath, though this is only paired best with small pool of N platform threads, and the results were much better
+1. Unlike the previous `DefaultEpochTracker`(mapped by epoch to all active transactions), which tracks all active transactions regardless of thread id(hence higher contention but more suitable for v threads), this epoch tracker maps the id of each thread to the current epoch of the transaction its hosting, once a transaction has ended, it maps it back to a dummy value which notifies us that this thread isnt actively participating in a txn and we should dont includ it in our min active epochs
+2. Since keys can literally not be contested(hence less locked waits to write to an epoch), since each key is mapped to a thread, performance increases a good amount 
 
-
-## Zipfian Bench
 ```java
-Benchmark                                               Mode  Cnt         Score        Error  Units
-ZipfianBenchmark.highSkew_readHeavy_1thread            thrpt   10   1393606.446 ± 437895.917  ops/s
-ZipfianBenchmark.highSkew_readHeavy_1thread:aborts     thrpt   10           ≈ 0                   #
-ZipfianBenchmark.highSkew_readHeavy_1thread:commits    thrpt   10  14110012.000                   #
-ZipfianBenchmark.highSkew_readHeavy_2threads           thrpt   10   1358232.039 ± 305299.879  ops/s
-ZipfianBenchmark.highSkew_readHeavy_2threads:aborts    thrpt   10     39006.000                   #
-ZipfianBenchmark.highSkew_readHeavy_2threads:commits   thrpt   10  13594051.000                   #
-ZipfianBenchmark.highSkew_readHeavy_4threads           thrpt   10   1354410.254 ± 370369.142  ops/s
-ZipfianBenchmark.highSkew_readHeavy_4threads:aborts    thrpt   10     97559.000                   #
-ZipfianBenchmark.highSkew_readHeavy_4threads:commits   thrpt   10  13797113.000                   #
-ZipfianBenchmark.highSkew_readHeavy_8threads           thrpt   10   2431678.956 ± 306186.383  ops/s
-ZipfianBenchmark.highSkew_readHeavy_8threads:aborts    thrpt   10    327754.000                   #
-ZipfianBenchmark.highSkew_readHeavy_8threads:commits   thrpt   10  24191452.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_1thread           thrpt   10    492155.116 ± 171078.481  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_1thread:aborts    thrpt   10           ≈ 0                   #
-ZipfianBenchmark.highSkew_writeHeavy_1thread:commits   thrpt   10   4974842.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_2threads          thrpt   10    481699.851 ± 213931.862  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_2threads:aborts   thrpt   10     79433.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_2threads:commits  thrpt   10   4787212.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_4threads          thrpt   10    806222.398 ± 152026.921  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_4threads:aborts   thrpt   10    214219.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_4threads:commits  thrpt   10   7982397.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_8threads          thrpt   10    980224.466 ± 266672.937  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_8threads:aborts   thrpt   10    556365.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_8threads:commits  thrpt   10  10289137.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_1thread             thrpt   10   1815250.914 ± 283742.915  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_1thread:aborts      thrpt   10           ≈ 0                   #
-ZipfianBenchmark.lowSkew_readHeavy_1thread:commits     thrpt   10  18161640.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_2threads            thrpt   10   1438418.394 ± 580858.650  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_2threads:aborts     thrpt   10      5742.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_2threads:commits    thrpt   10  14390301.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_4threads            thrpt   10   2153052.255 ± 198120.497  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_4threads:aborts     thrpt   10     25534.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_4threads:commits    thrpt   10  21553704.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_8threads            thrpt   10   2064802.928 ± 798420.267  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_8threads:aborts     thrpt   10     46260.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_8threads:commits    thrpt   10  22478964.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_1thread            thrpt   10    343656.803 ± 301494.466  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_1thread:aborts     thrpt   10           ≈ 0                   #
-ZipfianBenchmark.lowSkew_writeHeavy_1thread:commits    thrpt   10   3493757.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_2threads           thrpt   10    663259.983 ± 183178.864  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_2threads:aborts    thrpt   10      8035.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_2threads:commits   thrpt   10   6635659.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_4threads           thrpt   10    880624.208 ± 218307.010  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_4threads:aborts    thrpt   10     33303.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_4threads:commits   thrpt   10   8854223.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_8threads           thrpt   10    895477.631 ± 281876.580  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_8threads:aborts    thrpt   10    100709.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_8threads:commits   thrpt   10  10482891.000                   #
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2887534.127 ± 554342.591  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  2366272.494 ± 324415.185  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  2162652.894 ± 276947.370  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  2449227.477 ± 443072.582  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10  1271287.026 ± 498230.994  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10  1578855.855 ± 213555.495  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  1340979.654 ± 316184.797  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  1519457.062 ± 700083.591  ops/s
 ```
+The variance was actually worse in some scenarios, almost 100% of the actual score
+
+While running these benchmarks, I noticed something odd looking at my profile data for memory allocation, around a lot of memory was getting allocated but barely cleaned up by the GC while running my benchmarks, leading to high variance and my numbers tanking in unusual ways during benchmarking. The profile data showed most of this occurred when I started a txn but that wasn't too helpful. So I decided to look at my actual memory usage when running these benchmarks and I noticed around 95% of my memory was being used while running these benchmarks.
+My first suspect were my version chains, since they could be the main issue objects were not being cleaned up by the GC. So I decided to add some debug statements to see if versions we're being cleaned up, and they actually weren't. The issue lied in this simple if check I added earlier to prevent redundant O(N) lookups
+
+```java
+    @Override
+public void removeUnreachableVersions(long tBegin) {
+    if (tBegin <= minVisibleEpoch.epoch) return; //This simple line here, the issue was that minVisibleEpoch was always initialized as Long.MAX_VALUE, even if the epoch could be updated while non-visible version were getting pruned, the GC would never actually get the chance to prune those versions, because beginTs(seen epoch) would always be less than Long.MAX_VALUE
+    minVisibleEpoch.reset(); //Reset the holder everytime, to prevent a situation where we are sitting on an older end ts, from a version pruned a while back
+    var ls = this.latest;
+    Set<Map.Entry<Long, Version<E>>> set = versionMap.entrySet();
+
+
+    
+    set.removeIf(entry -> {
+        var val = entry.getValue();
+        boolean shouldRemove = val.endTs < tBegin  && val != ls;
+
+        if (!shouldRemove && val.endTs < minVisibleEpoch.epoch) minVisibleEpoch.epoch = val.endTs;
+        return shouldRemove;
+    });
+}
+```
+
+This was changed to
+```java
+if (minVisibleEpoch.epoch != Long.MAX_VALUE && tBegin <= minVisibleEpoch.epoch) return; //Actually gave the gc a chance to prune the older versions
+```
+
+After this, my numbers improved significantly and variance became actually reasonable
+**QueueVersionChain**
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  3661999.053 ± 250328.589  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  2912929.462 ± 407116.088  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  3805035.143 ± 143883.075  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  5351705.684 ± 385808.932  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10  2892186.826 ± 247933.987  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10  2261478.018 ± 129957.203  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  3085586.183 ± 140848.009  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  4718734.949 ± 594959.310  ops/s
+```
+
+**NavigableVersionChain**
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2880727.238 ± 234080.289  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  2659916.140 ± 431357.576  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  3948662.816 ± 174838.230  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  5570659.349 ± 513512.687  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10  1372610.505 ± 148236.473  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10  1499086.614 ± 195638.379  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  2473431.843 ± 383486.445  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  5004266.397 ± 623837.706  ops/s
+
+```
+
+

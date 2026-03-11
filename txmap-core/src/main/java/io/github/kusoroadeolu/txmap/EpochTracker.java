@@ -5,7 +5,7 @@ public interface EpochTracker {
 
     long currentEpoch();
 
-    void decrementEpoch(long epoch);
+    void leaveEpoch(long epoch);
 
     //Find the minimum active epoch
     long minActiveEpoch();

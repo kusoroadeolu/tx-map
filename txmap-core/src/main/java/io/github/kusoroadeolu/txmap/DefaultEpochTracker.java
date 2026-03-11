@@ -30,7 +30,7 @@ public class DefaultEpochTracker implements EpochTracker{
     }
 
     @Override
-    public void decrementEpoch(long epoch){
+    public void leaveEpoch(long epoch){
         var al = activeTxs.get(epoch);
         if (al != null && al.decrementAndGet() == 0){
             activeTxs.remove(epoch);
@@ -40,9 +40,6 @@ public class DefaultEpochTracker implements EpochTracker{
     //Find the minimum active epoch
     @Override
     public long minActiveEpoch(){
-//        return activeTxs.isEmpty()
-//                ? currentEpoch.get()
-//                : activeTxs.firstKey();
         return activeTxs.keySet().stream().min(Long::compare).orElse(currentEpoch.get());
     }
 

@@ -34,7 +34,7 @@ public class GCThread<K, V> {
             while (!stop){
                 K current;
                 while ((current = cleanupReqs.poll()) != null){
-                        map.get(current).removeUnreachableVersions(epoch.getCurrentEpoch());
+                        map.get(current).pruneUnreachableVersions(epoch.getCurrentEpoch());
                 }
             }
         });

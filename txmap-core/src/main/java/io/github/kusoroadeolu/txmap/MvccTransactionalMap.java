@@ -1,8 +1,6 @@
 package io.github.kusoroadeolu.txmap;
 
-import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.vchain.NavigableVersionChain;
-import io.github.kusoroadeolu.txmap.vchain.QueueVersionChain;
 import io.github.kusoroadeolu.txmap.vchain.Version;
 
 import java.util.*;
@@ -28,7 +26,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final AtomicInteger size;
 
     public MvccTransactionalMap() {
-        this.epochTracker = new DefaultEpochTracker();
+        this.epochTracker = new ThreadLocalEpochTracker();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
         this.idGenerator = new TransactionIDGenerator();
@@ -50,7 +48,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         var vMap = underlying;
         VersionChain<V> versionChain = vMap.get(key);
         if(versionChain == null) {
-            versionChain = vMap.computeIfAbsent(key, _ -> new QueueVersionChain<>()); //No removals so no race conditions
+            versionChain = vMap.computeIfAbsent(key, _ -> new NavigableVersionChain<>()); //No removals so no race conditions
         }
         return versionChain;
     }
@@ -86,18 +84,18 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         }
 
         @Override
-        public FutureValue<Option<V>> put(K key, V value) {
+        public FutureValue<V> put(K key, V value) {
             return this.doWrite(key, value, PUT);
         }
 
         @Override
-        public FutureValue<Option<V>> remove(K key) {
+        public FutureValue<V> remove(K key) {
             return this.doWrite(key, null, REMOVE);
         }
 
 
 
-        FutureValue<Option<V>> doWrite(K key, V value, WriteOperation.WriteType type){
+        FutureValue<V> doWrite(K key, V value, WriteOperation.WriteType type){
             if (isAborted()) {
                 return uncompletedFuture();
             }
@@ -124,18 +122,18 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
         @SuppressWarnings("unchecked")
         @Override
-        public FutureValue<Option<V>> get(K key) {
+        public FutureValue<V> get(K key) {
             if (isAborted()) return uncompletedFuture();
             FutureValue<?> future = this.doRead(key, ReadOperation.ReadType.GET);
-            return (FutureValue<Option<V>>) future;
+            return (FutureValue<V>) future;
         }
 
         @SuppressWarnings("unchecked")
         @Override
-        public FutureValue<Option<Boolean>> containsKey(K key) {
-            if (isAborted()) return  (FutureValue<Option<Boolean>>) FutureValue.uncompletedFuture();
+        public FutureValue<Boolean> containsKey(K key) {
+            if (isAborted()) return  (FutureValue<Boolean>) FutureValue.uncompletedFuture();
             FutureValue<?> future = this.doRead(key, ReadOperation.ReadType.CONTAINS);
-            return (FutureValue<Option<Boolean>>) future;
+            return (FutureValue<Boolean>) future;
         }
 
         @SuppressWarnings("unchecked")
@@ -184,7 +182,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
 
             releaseLocksAndClearOps();
-            this.map.epochTracker.decrementEpoch(tBegin);
+            this.map.epochTracker.leaveEpoch(tBegin);
             this.state = TransactionState.COMMITTED;
         }
 
@@ -219,9 +217,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             return state == TransactionState.ABORTED;
         }
 
-        @Override
-        public Option<Transaction> parent() {
-            return Option.none();
+        public Transaction parent() {
+            return null;
         }
 
         @Override
@@ -234,8 +231,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         }
 
         @SuppressWarnings("unchecked")
-        static <V>FutureValue<Option<V>>  uncompletedFuture(){
-           return  (FutureValue<Option<V>>) FutureValue.uncompletedFuture();
+        static <V>FutureValue<V>  uncompletedFuture(){
+           return  (FutureValue<V>) FutureValue.uncompletedFuture();
         }
 
         boolean tryHold(KeyStatus ks){
@@ -249,7 +246,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             private final V value; //Null for remove types, could probably use K, V but not really worth it since the actual transaction provides compile time safety
             private final MvccTx<K, V> mvccTx;
             private final WriteType type;
-            private final FutureValue<Option<V>> future;
+            private final FutureValue<V> future;
 
             public WriteOperation(K key, V value, MvccTx<K, V> mvccTx, WriteType type) {
                 this.key = key;
@@ -260,12 +257,12 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
             public void apply() {
                 var versionChain = mvccTx.map.versionChain(key);
-                var prev =  versionChain.enqueueNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
+                var prev =  versionChain.addNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
 
                 if (type == PUT && prev == null) mvccTx.size.incrementAndGet();
                 else if (type == REMOVE && prev != null) mvccTx.size.decrementAndGet();
 
-                future.complete(Option.ofNullable(prev));
+                future.complete(prev);
 
                 //Removing previous versions
                 if (versionChain.size() % VERSION_THRESHOLD == 0){
@@ -322,7 +319,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                     case CONTAINS -> seen != null && seen.e() != null;
                 };
 
-                future.complete(Option.ofNullable(value));
+                future.complete(value);
             }
 
             enum ReadType{

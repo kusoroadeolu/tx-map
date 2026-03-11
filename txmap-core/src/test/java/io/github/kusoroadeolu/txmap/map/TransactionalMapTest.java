@@ -52,8 +52,8 @@ class TransactionalMapTest {
             var removeFuture = tx.remove("bar");
             var containsFuture = tx.containsKey("bar");
             tx.commit();
-            assertEquals(Option.some(99), removeFuture.get());
-            assertEquals(Option.some(true), containsFuture.get()); //Should return true because we never see writes from our own transactions
+            assertEquals(99, removeFuture.get());
+            assertEquals(true, containsFuture.get()); //Should return true because we never see writes from our own transactions
         }
     }
 

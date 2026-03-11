@@ -12,14 +12,14 @@ public class QueueVersionChain<E> implements VersionChain<E> {
     private final Deque<Version<E>> versionQueue;
     private int currentVersion = 0; //Should only be incremented by the lock holder
     private volatile Version<E> latest;
-    private final EndTsHolder endTsHolder; //Constantly track the minimum of end ts of this version chain
+    private final MinVisibleEpoch minVisibleEpoch; //Constantly track the minimum of end ts of this version chain
     private final LongAdder size;
 
 
 
     public QueueVersionChain() {
         this.versionQueue = new ConcurrentLinkedDeque<>();
-        this.endTsHolder = new EndTsHolder();
+        this.minVisibleEpoch = new MinVisibleEpoch();
         this.size = new LongAdder();
     }
 
@@ -28,7 +28,7 @@ public class QueueVersionChain<E> implements VersionChain<E> {
         return latest;
     }
 
-    public E enqueueNewVersion(E e, long beginTs, TransactionID txnId) {
+    public E addNewVersion(E e, long beginTs, TransactionID txnId) {
         Version<E> prev = this.latest;
         Version<E> newVersion = new Version<>(e, ++currentVersion, beginTs, txnId);
         versionQueue.add(newVersion);
@@ -43,9 +43,6 @@ public class QueueVersionChain<E> implements VersionChain<E> {
         if (versionQueue.isEmpty()) return null;
 
         var ls = this.latest;
-
-        //In the case where a writer modifies endTs before it is visible to us, we can fallback to the oLog(N) scenario
-        if(ls != null && (tBegin >= ls.beginTs && tBegin < ls.endTs)) return ls;
 
         Version<E> overlap = null;
 
@@ -62,18 +59,18 @@ public class QueueVersionChain<E> implements VersionChain<E> {
     }
 
 
-    public void removeUnreachableVersions(long tBegin){ //We're linking versions whose endTs < tBegin
-        if (tBegin <= endTsHolder.endTs) return;
-        endTsHolder.reset(); //Reset the holder everytime, to prevent a situation where we are sitting on an end ts, from a version pruned since
+    public void pruneUnreachableVersions(long from){ //We're linking versions whose endTs < tBegin
+        if (minVisibleEpoch.epoch != Long.MAX_VALUE && from <= minVisibleEpoch.epoch) return; //If the current end ts is greater than tBegin(the seen epoch), skip
+        minVisibleEpoch.reset(); //Reset the holder everytime, to prevent a situation where we are sitting on an end ts, from a version pruned since]
         var ls = this.latest;
-        int removed;
-        //Excluding the topmost version ofc
         versionQueue.removeIf(version -> {
-            boolean shouldRemove = version.endTs < tBegin  && version != ls;
-            if (!shouldRemove && version.endTs < endTsHolder.endTs) endTsHolder.endTs = version.endTs;
+            boolean shouldRemove = version.endTs < from && version != ls;
+            if (!shouldRemove && version.endTs < minVisibleEpoch.epoch) minVisibleEpoch.epoch = version.endTs;
             else size.decrement();
+
             return shouldRemove;
         });
+
     }
 
 
@@ -89,12 +86,12 @@ public class QueueVersionChain<E> implements VersionChain<E> {
     }
 
 
-    static class EndTsHolder{
-        long endTs = Long.MAX_VALUE; //Only read by the gc thread so we don't need volatile here
+    static class MinVisibleEpoch {
+        long epoch = Long.MAX_VALUE; //Only read and modified by the gc thread so we don't need inter thread visibility here
 
 
         void reset(){
-            endTs = Long.MAX_VALUE;
+            epoch = Long.MAX_VALUE;
         }
     }
 }

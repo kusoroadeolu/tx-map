@@ -20,17 +20,12 @@ public class FutureValue<V> {
         this.future = new CompletableFuture<>();
     }
 
-    @SuppressWarnings("unchecked")
-    public @NonNull Option<V> get(){
+    public V get(){
         try {
-            if (future.isDone()){
-                V value = future.get();
-                if (value instanceof Option<?>) return (Option<V>) value;
-                else return Option.ofNullable(value);
-            }
-            return Option.none();
+            if (future.isDone())return future.get();
+            return null;
         } catch (ExecutionException | InterruptedException _) {
-            return Option.none();
+            return null;
         }
     }
 
@@ -39,11 +34,11 @@ public class FutureValue<V> {
     }
 
     @SuppressWarnings("unchecked")
-    void complete(@NonNull Object value){
+    void complete(Object value){
         future.complete((V)value);
     }
 
     public static FutureValue<?> uncompletedFuture(){
-        return  UNCOMPLETED_FUTURE;
+        return UNCOMPLETED_FUTURE;
     }
 }
