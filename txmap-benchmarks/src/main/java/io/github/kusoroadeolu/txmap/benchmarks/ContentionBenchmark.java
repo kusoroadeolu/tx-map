@@ -3,6 +3,7 @@ package io.github.kusoroadeolu.txmap.benchmarks;
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.FutureValue;
 import io.github.kusoroadeolu.txmap.TransactionalMap;
+import io.github.kusoroadeolu.txmap.txkeeper.VersionChainType;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.profile.AsyncProfiler;
@@ -26,7 +27,11 @@ public class ContentionBenchmark {
 
     private static final String[] KEYS = {"key-0", "key-1", "key-2", "key-3"};
 
+    @Param({"queue", "nav"})
+    private String versionChainType;
+
     private TransactionalMap<String, Integer> txMap;
+
 
 
     @State(Scope.Thread)
@@ -46,7 +51,11 @@ public class ContentionBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        txMap = TransactionalMap.create();
+        txMap = switch (versionChainType){
+            case "queue" -> TransactionalMap.create(VersionChainType.QUEUE);
+            case "nav" -> TransactionalMap.create(VersionChainType.NAVIGABLE);
+            default -> throw new IllegalArgumentException();
+        };
         try (var tx = txMap.beginTx()) {
             for (String key : KEYS) tx.put(key, 0);
             tx.commit();
@@ -120,17 +129,13 @@ public class ContentionBenchmark {
         doOp(ts.nextKey(), isWrite, bh, ts);
     }
 
-    private void balanced(ThreadState ts, Blackhole bh) {
-        boolean isWrite = (ts.opIndex++ % 2) == 0; // every other op is a write
-        doOp(ts.nextKey(), isWrite, bh, ts);
-    }
 
     private void writeHeavy(ThreadState ts, Blackhole bh) {
         boolean isWrite = (ts.opIndex++ % 10) != 0; // 9 in 10 ops is a write
         doOp(ts.nextKey(), isWrite, bh, ts);
     }
 
-    //Include size in both to measure the overhead of size ops in pessimistic, though this should have minimal effect for CoW and Snapshots
+    //Included size in both to measure the overhead of size ops in pessimistic, though this should have minimal effect for CoW and Snapshots
     private void doOp(String key, boolean isWrite, Blackhole bh, ThreadState ts) {
         try (var tx = txMap.beginTx()) {
             FutureValue<Integer> future;

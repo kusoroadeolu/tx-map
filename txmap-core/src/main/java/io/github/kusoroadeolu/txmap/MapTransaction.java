@@ -19,4 +19,8 @@ public interface MapTransaction<K, V> extends AutoCloseable, Transaction {
     FutureValue<Integer> size();
 
     boolean isCommitted();
+
+    default boolean isAborted(){
+        return state() == TransactionState.ABORTED;
+    }
 }

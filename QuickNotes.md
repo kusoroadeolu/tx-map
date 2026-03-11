@@ -3,7 +3,7 @@ Initially my MVCC txMap had good read numbers for thrpt and decent write numbers
 1. OOME under contention.
 **NOTE:** that Active transactions isnt my garbage collecting algorithm, rather my epoch tracking class, meaning it tracks the current minimum epoch needed for my actual GC thread to clean up old versions
 ```java
-ActiveTransactions activeTxns = mvccTx.map.activeTransactions.copy(); //We're getting a copy to prevent any race conditions while we're searching for the lowest tBegin
+ActiveTransactions activeTxns = mvccTx.map.activeTransactions.copy(); //Copied the entire map on active txns, could be thousands 
 long minActiveTBegin = activeTxns.findMinActiveTBegin(); 
 versionChain.removeUnreachableVersions(minActiveTBegin);
 
@@ -56,7 +56,7 @@ ContentionBenchmark.writeHeavy_8threads          thrpt   10   902537.739 ±  932
 ```
 
 
-After another round of profiling, I realized that I was making `findOverlap()` calls frequently on my read heavy transactions, so basically an O(n) traversal for each find overlap call, which just becomes worse as the version queue per key grows, so I decided to use a different approach, I decided to use a navigable map as my version chain to reduce this traversal time per call to O(logN), and the numbers showed significant improvement
+After another round of profiling, I realized that I was making `findOverlap()` calls frequently on my read heavy transactions, so basically an O(n) traversal for each find overlap call, which just becomes worse as the version queue per key grows, so I decided to use a different approach, I decided to use a navigable map as my version chain to reduce this traversal time per call to O(logN), at the cost of more expensive writes, and the numbers showed significant improvement
 ```java
 Benchmark                                         Mode  Cnt        Score        Error  Units
 ContentionBenchmark.readHeavy_1thread            thrpt   10   601083.402 ± 165550.604  ops/s
@@ -69,7 +69,7 @@ ContentionBenchmark.writeHeavy_4threads          thrpt   10   836488.562 ±  800
 ContentionBenchmark.writeHeavy_8threads          thrpt   10   979821.239 ±  89332.281  ops/s
 ```
 
-After looking through my code again, I realized I never actually started the background worker thread for my `ActiveTransactions` class, so i decided to start it and well looks like we're back at the beginning lol
+After looking through my code again, I realized I never actually started the background worker thread for my `ActiveTransactions` class, so i decided to start it and well it looks like we're back at the beginning lol
 ```java
 Benchmark                                         Mode  Cnt         Score        Error  Units
 ContentionBenchmark.readHeavy_1thread            thrpt   10     37911.129 ±  13675.765  ops/s
@@ -85,7 +85,7 @@ ContentionBenchmark.writeHeavy_8threads          thrpt   10   1132311.163 ± 285
 After looking through my profile data, I realized that garbage collecting on a writer transaction thread was causing a lot of CPU spikes, so I decided to move GC to a background thread, and the writer txn thread instead submits a cleanup request to the gc thread when the version chain depth reaches a certain threshold
 ```java
 Benchmark                                         Mode  Cnt         Score        Error  Units
-ContentionBenchmark.readHeavy_1thread            thrpt   10    864770.978 ± 123348.212  o[profile.jfr](../../../../../jfr-output/io.github.kusoroadeolu.txmap.benchmarks.ContentionBenchmark.readHeavy_8threads-Throughput/profile.jfr)ps/s
+ContentionBenchmark.readHeavy_1thread            thrpt   10    864770.978 ± 123348.212  ops/s
 ContentionBenchmark.readHeavy_2threads           thrpt   10   1187432.216 ± 171323.762  ops/s
 ContentionBenchmark.readHeavy_4threads           thrpt   10    827029.790 ± 525292.066  ops/s
 ContentionBenchmark.readHeavy_8threads           thrpt   10    661419.334 ± 215284.213  ops/s
@@ -223,7 +223,7 @@ ContentionBenchmark.writeHeavy_4threads      thrpt   10  1163394.531 ± 183420.1
 ContentionBenchmark.writeHeavy_8threads      thrpt   10  1664437.392 ± 348898.556  ops/s
 ```
 
-After looking at my queue version chain, i realized calling size() on each write txn was killing perf, since we had to scan the whole queue to find the size(even with the queue's dead nodes), so I decided to use a long adder to track the size for O(1) calls
+After looking at my queue version chain, I realized calling size() to check version chain depth on each write txn was killing perf, since we had to scan the whole queue to find the size(even with the queue's dead nodes), so I decided to use a long adder to track the size for O(1) calls
 Queue version chain
 ```java
 Benchmark                                     Mode  Cnt        Score        Error  Units
@@ -237,9 +237,8 @@ ContentionBenchmark.writeHeavy_4threads      thrpt   10  1135401.769 ± 380147.2
 ContentionBenchmark.writeHeavy_8threads      thrpt   10  1620440.108 ± 446644.869  ops/s
 ```
 
-My current hotspot across all benchmarks right now, is in my `computeIfAbsent()` call, anytime a transaction(at creation time) requests for their current epoch(i.e. tBegin)
-
-I then decided to try something a bit different, I decided to build a thread local epoch tracker, to handle to compute if absent hotpath, though this is only paired best with small pool of N platform threads, and the results were much better
+I saw my current hotspot across all benchmarks right now, is in my `computeIfAbsent()` call, anytime a transaction(at creation time) requests for their current epoch(i.e. tBegin)
+To combat this, I decided to try something a bit different, I decided to build a thread local epoch tracker, to handle to compute if absent hotpath, though this is only paired best with small pool of N platform threads, and the results were much better
 1. Unlike the previous `DefaultEpochTracker`(mapped by epoch to all active transactions), which tracks all active transactions regardless of thread id(hence higher contention but more suitable for v threads), this epoch tracker maps the id of each thread to the current epoch of the transaction its hosting, once a transaction has ended, it maps it back to a dummy value which notifies us that this thread isnt actively participating in a txn and we should dont includ it in our min active epochs
 2. Since keys can literally not be contested(hence less locked waits to write to an epoch), since each key is mapped to a thread, performance increases a good amount 
 
@@ -309,7 +308,64 @@ ContentionBenchmark.writeHeavy_1thread       thrpt   10  1372610.505 ± 148236.4
 ContentionBenchmark.writeHeavy_2threads      thrpt   10  1499086.614 ± 195638.379  ops/s
 ContentionBenchmark.writeHeavy_4threads      thrpt   10  2473431.843 ± 383486.445  ops/s
 ContentionBenchmark.writeHeavy_8threads      thrpt   10  5004266.397 ± 623837.706  ops/s
-
 ```
 
+I was still a bit skeptical about the variance, even though it was pretty reasonable, I realized a lot of memory was getting allocated to my thread local epoch tracker under contention due to `long` boxing when updating epochs, so I decided to try using fast utils synchronized `Long2LongHashMap`, to prevent boxing and allocations under high contention, and rerunning the benchmarks again, allocation on that hotpath dropped to basically zero, and writes under contention suffered a bit, but the variance and read heavy workloads were pretty good
+**QueueVersionChain**
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  4157723.095 ± 336489.774  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  3162839.645 ± 138953.946  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  3019937.034 ± 239218.935  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  2448813.080 ±  99845.756  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10  2914046.852 ± 293628.559  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10  2166556.295 ± 236040.158  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  2746811.833 ±  92244.601  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  2525255.564 ± 118883.084  ops/s
+```
 
+**NavigableVersionChain**
+```java
+
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2544168.495 ± 903588.347  ops/s //Err margins is a bit high but the other are alright
+ContentionBenchmark.readHeavy_2threads       thrpt   10  2869208.043 ± 265690.673  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  2639582.701 ±  81446.973  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  2194704.677 ±  97074.338  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10  1226719.823 ± 118270.073  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10  1467439.969 ± 223450.814  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  2387801.563 ± 203287.563  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  2473545.475 ± 395921.112  ops/s
+```
+
+The thrpt was alright but I knew locking the whole map would be an issue in the long run, so I decided to try a generic trick, using primitive arrays as generic types, so instead of boxed long values. Removing shared synchronization overhead in the contended 
+```java
+ConcurrentMap<Long, Long> map //Instead of this, we could do
+ConcurrentMap<Long, long[]> map //No boxing
+```
+
+**QueueVersionChain**
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  3186560.615 ± 392741.258  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  2930796.165 ± 373856.487  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  3703210.385 ± 259485.266  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  4960148.535 ± 525748.662  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10  2418084.564 ± 121399.056  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10  2142431.779 ± 158841.552  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  2842341.696 ± 189840.837  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  5083798.377 ± 225077.671  ops/s
+```
+
+**NavigableVersionChain**
+```java
+Benchmark                                     Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread        thrpt   10  2354203.511 ± 141336.048  ops/s
+ContentionBenchmark.readHeavy_2threads       thrpt   10  2383180.494 ± 144385.498  ops/s
+ContentionBenchmark.readHeavy_4threads       thrpt   10  3433110.630 ± 151963.731  ops/s
+ContentionBenchmark.readHeavy_8threads       thrpt   10  4654988.096 ± 378440.825  ops/s
+ContentionBenchmark.writeHeavy_1thread       thrpt   10  1163631.806 ± 102309.273  ops/s
+ContentionBenchmark.writeHeavy_2threads      thrpt   10  1326401.467 ± 160581.948  ops/s
+ContentionBenchmark.writeHeavy_4threads      thrpt   10  2177222.195 ± 376320.567  ops/s
+ContentionBenchmark.writeHeavy_8threads      thrpt   10  3716040.114 ± 851394.299  ops/s
+```

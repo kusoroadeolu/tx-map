@@ -12,30 +12,13 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Zipfian key distribution benchmark — mimics YCSB skew settings from the Wu et al. paper.
- *
- * Goal: measure throughput under realistic skewed access patterns.
- * A small number of "hot" keys receive the majority of traffic (Zipfian distribution),
- * while most keys are accessed rarely. This is closer to real-world OLTP workloads
- * than either pure contention (ContentionBenchmark) or zero contention (DisjointKeyBenchmark).
- *
- * Zipf parameter θ controls skew:
- *  - θ = 0.0 → uniform (equivalent to DisjointKeyBenchmark-style)
- *  - θ = 0.5 → moderate skew
- *  - θ = 0.9 → high skew (a few keys dominate — similar to paper's high-contention setting)
- *
- * What to look for:
- *  - How throughput degrades as θ increases (more contention on hot keys)
- *  - Abort rate difference between read-heavy and write-heavy under skew
- *  - Whether scaling holds at moderate skew (θ=0.5) like it does with disjoint keys
- */
+
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
 @Warmup(iterations = 10, time = 1)
-@Measurement(iterations = 10, time = 1)
-@Fork(value = 3, jvmArgsPrepend = {
+@Measurement(iterations = 5, time = 1)
+@Fork(value = 2, jvmArgsPrepend = {
         "-XX:+UnlockDiagnosticVMOptions",
         "-XX:+DebugNonSafepoints"
 })
@@ -198,7 +181,7 @@ public class ZipfianBenchmark {
             else         future = tx.get(key);
             tx.commit();
             if (tx.isCommitted()) ts.commits++;
-            else ts.aborts++;
+            else if(tx.isAborted()) ts.aborts++;
             bh.consume(future.get());
         }
     }

@@ -1,6 +1,8 @@
 package io.github.kusoroadeolu.txmap;
 
+import io.github.kusoroadeolu.txmap.txkeeper.VersionChainType;
 import io.github.kusoroadeolu.txmap.vchain.NavigableVersionChain;
+import io.github.kusoroadeolu.txmap.vchain.QueueVersionChain;
 import io.github.kusoroadeolu.txmap.vchain.Version;
 
 import java.util.*;
@@ -22,16 +24,31 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final ConcurrentMap<K, KeyStatus> status; //Keeping the status to the key
     private final TransactionIDGenerator idGenerator;
     private final GCThread<K, V> gcThread;
-    private static final int VERSION_THRESHOLD = 100;
+    private final int versionThreshold;
+    private final VersionChainType versionChainType;
     private final AtomicInteger size;
 
     public MvccTransactionalMap() {
+        this(100);
+    }
+
+    public MvccTransactionalMap(int threshold) {
+        this(threshold, VersionChainType.QUEUE);
+    }
+
+    public MvccTransactionalMap(VersionChainType type) {
+        this(100, type);
+    }
+
+    public MvccTransactionalMap(int threshold, VersionChainType versionChainType) {
         this.epochTracker = new ThreadLocalEpochTracker();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
         this.idGenerator = new TransactionIDGenerator();
         this.gcThread = new GCThread<>(underlying, epochTracker);
         this.size = new AtomicInteger();
+        this.versionThreshold = threshold;
+        this.versionChainType = versionChainType;
     }
 
     KeyStatus keyStatus(K key){
@@ -45,10 +62,12 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     }
 
     public VersionChain<V> versionChain(K key){
-        var vMap = underlying;
-        VersionChain<V> versionChain = vMap.get(key);
+        var versionChain = underlying.get(key);
         if(versionChain == null) {
-            versionChain = vMap.computeIfAbsent(key, _ -> new NavigableVersionChain<>()); //No removals so no race conditions
+           versionChain = switch (versionChainType){
+               case QUEUE -> new QueueVersionChain<>();
+               case NAVIGABLE -> new NavigableVersionChain<>();
+           };
         }
         return versionChain;
     }
@@ -131,7 +150,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         @SuppressWarnings("unchecked")
         @Override
         public FutureValue<Boolean> containsKey(K key) {
-            if (isAborted()) return  (FutureValue<Boolean>) FutureValue.uncompletedFuture();
+            if (isAborted()) return (FutureValue<Boolean>) FutureValue.uncompletedFuture();
             FutureValue<?> future = this.doRead(key, ReadOperation.ReadType.CONTAINS);
             return (FutureValue<Boolean>) future;
         }
@@ -265,7 +284,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 future.complete(prev);
 
                 //Removing previous versions
-                if (versionChain.size() % VERSION_THRESHOLD == 0){
+                if (versionChain.size() % mvccTx.map.versionThreshold == 0){
                     mvccTx.map.gcThread.submitCleanupRequest(key);
                 }
             }
