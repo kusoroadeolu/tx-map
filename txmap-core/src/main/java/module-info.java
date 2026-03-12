@@ -8,4 +8,6 @@ module txmap.core {
     exports io.github.kusoroadeolu.txmap;
     exports io.github.kusoroadeolu.txmap.txkeeper;
     exports io.github.kusoroadeolu.txmap.vchain;
+    exports io.github.kusoroadeolu.txmap.epochtracker;
+    exports io.github.kusoroadeolu.txmap.gc;
 }

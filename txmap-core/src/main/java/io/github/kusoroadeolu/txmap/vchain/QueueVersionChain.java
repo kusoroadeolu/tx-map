@@ -1,7 +1,6 @@
 package io.github.kusoroadeolu.txmap.vchain;
 
 import io.github.kusoroadeolu.txmap.TransactionID;
-import io.github.kusoroadeolu.txmap.VersionChain;
 
 import java.util.Deque;
 import java.util.Iterator;

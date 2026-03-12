@@ -1,9 +1,13 @@
 package io.github.kusoroadeolu.txmap;
 
+import io.github.kusoroadeolu.txmap.epochtracker.EpochTracker;
+import io.github.kusoroadeolu.txmap.epochtracker.LongToArrayEpochTracker;
+import io.github.kusoroadeolu.txmap.gc.GCThread;
 import io.github.kusoroadeolu.txmap.txkeeper.VersionChainType;
 import io.github.kusoroadeolu.txmap.vchain.NavigableVersionChain;
 import io.github.kusoroadeolu.txmap.vchain.QueueVersionChain;
 import io.github.kusoroadeolu.txmap.vchain.Version;
+import io.github.kusoroadeolu.txmap.vchain.VersionChain;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +45,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     }
 
     public MvccTransactionalMap(int threshold, VersionChainType versionChainType) {
-        this.epochTracker = new ThreadLocalEpochTracker();
+        this.epochTracker = new LongToArrayEpochTracker();
         this.status = new ConcurrentHashMap<>();
         this.underlying = new ConcurrentHashMap<>();
         this.idGenerator = new TransactionIDGenerator();

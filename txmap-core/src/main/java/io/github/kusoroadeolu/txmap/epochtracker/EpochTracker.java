@@ -1,4 +1,4 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.epochtracker;
 
 public interface EpochTracker {
     long newEpoch();

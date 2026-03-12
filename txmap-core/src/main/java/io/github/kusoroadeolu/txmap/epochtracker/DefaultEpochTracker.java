@@ -1,10 +1,9 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.epochtracker;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class DefaultEpochTracker implements EpochTracker{
+public class DefaultEpochTracker implements EpochTracker {
     private final AtomicLong currentEpoch;
     private final ConcurrentHashMap<Long, AtomicLong> activeTxs;
 

@@ -3,6 +3,7 @@ package io.github.kusoroadeolu.txmap.benchmarks;
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.FutureValue;
 import io.github.kusoroadeolu.txmap.TransactionalMap;
+import io.github.kusoroadeolu.txmap.txkeeper.VersionChainType;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -36,6 +37,9 @@ public class ZipfianBenchmark {
     private String[] pool_high;   // θ = 0.9
 
 
+    @Param({"queue", "nav"})
+    private String versionChainType;
+
     static String[] buildZipfPool(double theta) {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
 
@@ -66,7 +70,11 @@ public class ZipfianBenchmark {
     @Setup(Level.Trial)
 
     public void setup() {
-        txMap = TransactionalMap.create();
+        txMap = switch (versionChainType){
+            case "queue" -> TransactionalMap.create(VersionChainType.QUEUE);
+            case "nav" -> TransactionalMap.create(VersionChainType.NAVIGABLE);
+            default -> throw new IllegalArgumentException();
+        };
 
         // Pre-seed all keys so reads don't trivially return empty
         try (var tx = txMap.beginTx()) {

@@ -1,4 +1,7 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.gc;
+
+import io.github.kusoroadeolu.txmap.epochtracker.EpochTracker;
+import io.github.kusoroadeolu.txmap.vchain.VersionChain;
 
 import java.util.Queue;
 import java.util.concurrent.*;
@@ -40,7 +43,7 @@ public class GCThread<K, V> {
         });
     }
 
-    void stop(){
+    public void stop(){
         this.stop = true;
         this.cleanupReqs.clear();
         this.map.clear();

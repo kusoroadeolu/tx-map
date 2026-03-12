@@ -1,6 +1,6 @@
-package io.github.kusoroadeolu.txmap;
+package io.github.kusoroadeolu.txmap.vchain;
 
-import io.github.kusoroadeolu.txmap.vchain.Version;
+import io.github.kusoroadeolu.txmap.TransactionID;
 
 public interface VersionChain<E> {
     Version<E> latest();
