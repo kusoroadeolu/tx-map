@@ -183,7 +183,7 @@ public class ZipfianBenchmark {
     }
 
     private void doOp(String key, boolean isWrite, ThreadState ts, Blackhole bh) {
-        try (var tx = txMap.beginTx()) {
+        try(var tx = txMap.beginTx()){
             FutureValue<Integer> future;
             if (isWrite) future = tx.put(key, 42);
             else         future = tx.get(key);
@@ -192,6 +192,7 @@ public class ZipfianBenchmark {
             else if(tx.isAborted()) ts.aborts++;
             bh.consume(future.get());
         }
+
     }
 
     static class JMHRunner {

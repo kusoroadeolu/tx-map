@@ -14,11 +14,11 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TransactionalMapTest {
-    private TransactionalMap<Object, Object> txMap;
+    private MvccTransactionalMap<Object, Object> txMap;
 
     @BeforeEach
     void setUp() {
-        txMap = TransactionalMap.create();
+        txMap = (MvccTransactionalMap<Object, Object>) TransactionalMap.create();
     }
 
     // -------------------------------------------------------------------------
@@ -26,17 +26,14 @@ class TransactionalMapTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void put_thenGet_returnsNone() {
+    void put_thenGet_returnsNull() {
         try (var tx = txMap.beginTx()) {
             var putFuture = tx.put("foo", 42);
             var getFuture = tx.get("foo");
             tx.commit();
 
-            // put returns previous value (none since map was empty)
-            IO.println(putFuture.get());
-            assertTrue(putFuture.get().isNone());
-            // get returns none
-            assertEquals(Option.none(), getFuture.get());
+            assertNull(putFuture.get());
+            assertNull(getFuture.get());
         }
     }
 
@@ -66,16 +63,15 @@ class TransactionalMapTest {
             var sizeFuture = tx.size();
             tx.commit();
 
-            assertEquals(Option.some(3), sizeFuture.get());
+            assertEquals(3, sizeFuture.get());
         }
 
         try (var tx = txMap.beginTx()) {
             tx.remove("a");
             var sizeFuture = tx.size();
             tx.commit();
-            MvccTransactionalMap<Object, Object> mvc = ((MvccTransactionalMap<Object, Object>) txMap) ;
-            assertEquals(Option.some(3), sizeFuture.get()); //Should be 3 since, we just enqueue a null version;
-            assertNull(mvc.versionChain("a").latest().e());
+            assertEquals(2, sizeFuture.get());
+            assertNull(txMap.versionChain("a").latest().e());
         }
     }
 
@@ -90,7 +86,7 @@ class TransactionalMapTest {
             var putFuture = tx.put("key", 2);
             tx.commit();
 
-            assertEquals(Option.some(1), putFuture.get());
+            assertEquals(1, putFuture.get());
         }
     }
 
@@ -100,7 +96,7 @@ class TransactionalMapTest {
             var future = tx.containsKey("ghost");
             tx.commit();
             assertTrue(future.isComplete());
-            assertEquals(Option.some(false), future.get());
+            assertEquals(false, future.get());
         }
     }
 
@@ -118,13 +114,13 @@ class TransactionalMapTest {
         try (var tx = txMap.beginTx()) {
             var future = tx.containsKey("aborted");
             tx.commit();
-            assertEquals(Option.some(false), future.get());
+            assertEquals(false, future.get());
         }
     }
 
     @Test
     void abort_futureValuesAreNotCompleted() {
-        FutureValue<Option<Object>> putFuture;
+        FutureValue<Object> putFuture;
 
         try (var tx = txMap.beginTx()) {
             putFuture = tx.put("x", 10);
@@ -132,7 +128,7 @@ class TransactionalMapTest {
         }
 
         // Since the tx was aborted, future should not be completed
-        assertTrue(putFuture.get().isNone());
+        assertFalse(putFuture.isComplete());
     }
 
     @Test
@@ -143,10 +139,12 @@ class TransactionalMapTest {
             // No commit — close() should abort
         }
 
+
+
         try (var tx = txMap.beginTx()) {
             var future = tx.containsKey("autoclosed");
             tx.commit();
-            assertEquals(Option.some(false), future.get());
+            assertFalse(future.get());
         }
     }
 
@@ -157,14 +155,14 @@ class TransactionalMapTest {
     @Test
     void uncommittedWrite_notVisibleToOtherTransaction() throws InterruptedException {
         var latch = new CountDownLatch(1);
-        var readResult = new Option[1];
+        var readResult = new Object[1];
 
         // tx1 writes but doesn't commit yet
         var tx1 = txMap.beginTx();
         tx1.put("shared", 55);
 
         // tx2 reads concurrently before tx1 commits
-        Thread.ofVirtual().start(() -> {
+        Thread.startVirtualThread(() -> {
             try (var tx2 = txMap.beginTx()) {
                 var future = tx2.get("shared");
                 tx2.commit();
@@ -176,19 +174,17 @@ class TransactionalMapTest {
         latch.await();
         tx1.commit();
         // tx2 should not have seen the uncommitted value
-        assertTrue(readResult[0].isNone(), "Dirty read detected!");
+        assertNull(readResult[0], "Dirty read detected!");
     }
 
-    // -------------------------------------------------------------------------
-    // Concurrency — write/write conflict
-    // -------------------------------------------------------------------------
 
     @Test
     void concurrentWrites_toSameKey_onlyOneWins() throws InterruptedException {
         int threads = 5;
-        var executor = Executors.newFixedThreadPool(threads);
+        var executor = Executors.newFixedThreadPool(threads, Thread.ofVirtual().factory());
         var startGate = new CountDownLatch(1);
         var doneGate = new CountDownLatch(threads);
+        String cts = "cts";
 
         for (int i = 0; i < threads; i++) {
             final int val = i;
@@ -196,10 +192,9 @@ class TransactionalMapTest {
                 try {
                     startGate.await();
                     try (var tx = txMap.beginTx()) {
-                        tx.put("contested", val);
+                        tx.put(cts, val);
                         tx.commit();
                     }
-
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } finally {
@@ -209,13 +204,13 @@ class TransactionalMapTest {
         }
 
         startGate.countDown();
-        Thread.sleep(100);
         executor.close();
+        doneGate.await();
 
         try (var tx = txMap.beginTx()) {
-            var containsFuture = tx.containsKey("contested");
+            var containsFuture = tx.containsKey(cts);
             tx.commit();
-            assertEquals(Option.some(true), containsFuture.get());
+            assertTrue(containsFuture.get());
         }
     }
 
@@ -236,7 +231,7 @@ class TransactionalMapTest {
         try (var tx = txMap.beginTx()) {
             var sizeFuture = tx.size();
             tx.commit();
-            assertEquals(Option.some(n), sizeFuture.get());
+            assertEquals(n, sizeFuture.get());
         }
     }
 

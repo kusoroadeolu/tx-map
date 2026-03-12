@@ -29,7 +29,15 @@ public class Version<E>{
             return e;
         }
 
-        @Override
+    public long endTs() {
+        return endTs;
+    }
+
+    public long beginTs() {
+        return beginTs;
+    }
+
+    @Override
         public String toString() {
             return "Version{" +
                     "e=" + e +

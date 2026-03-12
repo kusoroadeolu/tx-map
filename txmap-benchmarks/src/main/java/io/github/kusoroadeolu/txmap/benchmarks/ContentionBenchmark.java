@@ -1,25 +1,22 @@
 package io.github.kusoroadeolu.txmap.benchmarks;
 
-import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.FutureValue;
 import io.github.kusoroadeolu.txmap.MapTransaction;
 import io.github.kusoroadeolu.txmap.TransactionalMap;
 import io.github.kusoroadeolu.txmap.txkeeper.VersionChainType;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.profile.AsyncProfiler;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
-@Warmup(iterations = 5, time = 1)
+@Warmup(iterations = 10, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(value = 2, jvmArgsPrepend = {
         "-XX:+UnlockDiagnosticVMOptions",
@@ -29,7 +26,7 @@ public class ContentionBenchmark {
 
     private static final String[] KEYS = {"key-0", "key-1", "key-2", "key-3"};
 
-    @Param({"queue"})
+    @Param({"queue", "nav"})
     private String versionChainType;
 
     private TransactionalMap<String, Integer> txMap;
@@ -139,10 +136,9 @@ public class ContentionBenchmark {
 
     //Included size in both to measure the overhead of size ops in pessimistic, though this should have minimal effect for CoW and Snapshots
     private void doOp(String key, boolean isWrite, Blackhole bh, ThreadState ts) {
-        MapTransaction<String, Integer> tx = null;
+        MapTransaction<String, Integer> tx;
         FutureValue<Integer> future;
         FutureValue<Integer> future2;
-        do {
             tx = txMap.beginTx();
             if (isWrite) {
                 future = tx.put(key, 42);
@@ -154,13 +150,9 @@ public class ContentionBenchmark {
             tx.commit();
             if (tx.isCommitted()) ts.commits++;
             else ts.aborts++;
-            assert tx.isCommitted() || tx.isAborted();
-        }while(tx.isAborted());
 
             bh.consume(future.get());
             bh.consume(future2.get());
-
-
     }
 
     static class JMHRunner{

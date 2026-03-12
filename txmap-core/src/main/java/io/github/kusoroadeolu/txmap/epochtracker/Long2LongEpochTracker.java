@@ -15,7 +15,6 @@ public class Long2LongEpochTracker implements ThreadLocalEpochTracker{
     public Long2LongEpochTracker() {
         this.currentEpoch = new AtomicLong();
         this.activeTxs = Long2LongMaps.synchronize(new Long2LongOpenHashMap());
-        this.activeTxs.defaultReturnValue(NO_ACTIVE_TXN);
     }
 
     public long newEpoch() {

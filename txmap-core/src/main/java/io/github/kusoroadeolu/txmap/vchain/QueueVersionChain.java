@@ -5,6 +5,7 @@ import io.github.kusoroadeolu.txmap.TransactionID;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 public class QueueVersionChain<E> implements VersionChain<E> {
@@ -12,14 +13,13 @@ public class QueueVersionChain<E> implements VersionChain<E> {
     private int currentVersion = 0; //Should only be incremented by the lock holder
     private volatile Version<E> latest;
     private final MinVisibleEpoch minVisibleEpoch; //Constantly track the minimum of end ts of this version chain
-    private final LongAdder size;
-
+    private final AtomicLong size;
 
 
     public QueueVersionChain() {
         this.versionQueue = new ConcurrentLinkedDeque<>();
         this.minVisibleEpoch = new MinVisibleEpoch();
-        this.size = new LongAdder();
+        this.size = new AtomicLong();
     }
 
 
@@ -31,7 +31,7 @@ public class QueueVersionChain<E> implements VersionChain<E> {
         Version<E> prev = this.latest;
         Version<E> newVersion = new Version<>(e, ++currentVersion, beginTs, txnId);
         versionQueue.add(newVersion);
-        size.increment();
+        size.incrementAndGet();
         if (prev != null) prev.setEndTs(beginTs);
         this.latest = newVersion;
         return prev == null ? null : prev.e;
@@ -39,22 +39,15 @@ public class QueueVersionChain<E> implements VersionChain<E> {
 
 
     public Version<E> findOverlap(long tBegin){
-        if (versionQueue.isEmpty()) return null;
-
-        var ls = this.latest;
-
-        Version<E> overlap = null;
-
         Iterator<Version<E>> iterator = versionQueue.descendingIterator();
         while (iterator.hasNext()){
             Version<E> version = iterator.next();
             if (tBegin >= version.beginTs && tBegin < version.endTs){
-                overlap = version;
-                return overlap;
+                return version;
             }
         }
 
-        return overlap;
+        return null;
     }
 
 
@@ -65,8 +58,7 @@ public class QueueVersionChain<E> implements VersionChain<E> {
         versionQueue.removeIf(version -> {
             boolean shouldRemove = version.endTs < from && version != ls;
             if (!shouldRemove && version.endTs < minVisibleEpoch.epoch) minVisibleEpoch.epoch = version.endTs;
-            else size.decrement();
-
+            else if(shouldRemove) size.decrementAndGet();
             return shouldRemove;
         });
 
@@ -74,7 +66,7 @@ public class QueueVersionChain<E> implements VersionChain<E> {
 
 
     public int size(){
-        return (int) size.sum();
+        return (int) size.get();
     }
 
     @Override

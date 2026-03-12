@@ -1,6 +1,7 @@
 package io.github.kusoroadeolu.txmap;
 
 import io.github.kusoroadeolu.txmap.epochtracker.EpochTracker;
+import io.github.kusoroadeolu.txmap.epochtracker.Long2LongEpochTracker;
 import io.github.kusoroadeolu.txmap.epochtracker.LongToArrayEpochTracker;
 import io.github.kusoroadeolu.txmap.gc.GCThread;
 import io.github.kusoroadeolu.txmap.txkeeper.VersionChainType;
@@ -21,7 +22,6 @@ import static io.github.kusoroadeolu.txmap.MvccTransactionalMap.MvccTx.WriteOper
 //Append only storage
 //For garbage collection, the issue is knowing when a version is not visible to other transactions
 // version.begin-ts <= tBegin < version.end-ts
-//TODO, write heavy workloads have crazy error margins, my current suspect is the garbage collection running on the write transactions thread, clearing unreachable versions after every N iterations could cause issues, cause in a queue of 500k, half of those versions might still be reachable, so we're basically going to iterate this on every write tx that acquires the lock
 public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     private final EpochTracker epochTracker; //Incremented at commit time
     private final ConcurrentMap<K, VersionChain<V>> underlying;
@@ -68,12 +68,16 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
     public VersionChain<V> versionChain(K key){
         var versionChain = underlying.get(key);
         if(versionChain == null) {
-           versionChain = switch (versionChainType){
-               case QUEUE -> new QueueVersionChain<>();
-               case NAVIGABLE -> new NavigableVersionChain<>();
-           };
+           versionChain = underlying.computeIfAbsent(key, _ -> newVersionChain());
         }
         return versionChain;
+    }
+
+    VersionChain<V> newVersionChain(){
+        return switch (versionChainType){
+            case QUEUE -> new QueueVersionChain<>();
+            case NAVIGABLE -> new NavigableVersionChain<>();
+        };
     }
 
     @Override
@@ -91,8 +95,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         private final TransactionID txnId; //The transaction id
         private final long tBegin; // The current txcommit number at the transaction start time
         private long tCommit; //Txcommit number assigned at validation time
-        private final List<WriteOperation<K, V>> writeSet;
-        private final List<ReadOperation<K, Object>> readSet;
+        private final List<WriteOperation<K, V>> writeOps;
+        private final List<ReadOperation<K, Object>> readOps;
         private final AtomicInteger size;
         private TransactionState state = TransactionState.IN_PROGRESS;
 
@@ -101,8 +105,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             this.map = map;
             this.txnId = new TransactionID(map.idGenerator.newId());
             this.tBegin = map.epochTracker.currentEpoch();
-            this.readSet = new ArrayList<>(4);
-            this.writeSet = new ArrayList<>(4);
+            this.readOps = new ArrayList<>(4);
+            this.writeOps = new ArrayList<>(4);
             this.size = map.size;
         }
 
@@ -119,26 +123,27 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
 
 
         FutureValue<V> doWrite(K key, V value, WriteOperation.WriteType type){
-            if (isAborted()) {
-                return uncompletedFuture();
-            }
+            if (isAborted()) return uncompletedFuture();
+
 
             var ks = map.keyStatus(key);
-            boolean alreadyHeld = this.tryHold(ks); //If we fail to hold the 'lock' and the lock holder hasnt committed just abort the whole tx
+            boolean alreadyHeld = this.tryHold(ks); //If we fail to hold the 'lock' and the lock holder hasn't committed just abort the whole tx
             if (alreadyHeld) { //Failed to hold write lock, abort
                 this.setAborted();
                 return uncompletedFuture();
             }
 
             WriteOperation<K, V> wo = new WriteOperation<>(key, value, this, type);
-            writeSet.add(wo);
-
+            writeOps.add(wo);
             VersionChain<V> versionChain = map.versionChain(key);
-            Version<V> overlap = versionChain.findOverlap(tBegin);
-            if (!Objects.equals(overlap, versionChain.latest())) { //Stale write version, abort
-                this.setAborted();
-                return uncompletedFuture();
+            Version<V> latest = versionChain.latest();
+            if (latest != null){
+                if (!(tBegin >= latest.beginTs() && tBegin < latest.endTs())) { //A late arriving transaction, checking if a late arriving transaction is still in the epoch it saw, ensure it overlaps the latest version
+                    this.setAborted();
+                    return uncompletedFuture();
+                }
             }
+
 
             return wo.future;
         }
@@ -178,7 +183,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             }
 
             ReadOperation<K, ?> ro = new ReadOperation<>(key, this, type);
-            this.readSet.add((ReadOperation<K, Object>) ro);
+            this.readOps.add((ReadOperation<K, Object>) ro);
             return (FutureValue<Object>) ro.future;
         }
 
@@ -196,12 +201,14 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 return;
             }
 
-            for (WriteOperation<K, V> wo : writeSet){
+            for (WriteOperation<K, V> wo : writeOps){
                 wo.apply();
             }
 
-            for (ReadOperation<K, Object> ro : readSet){
+
+            for (ReadOperation<K, Object> ro : readOps){
                 ro.apply();
+
             }
 
             releaseLocksAndClearOps();
@@ -212,7 +219,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         public void validate(){
             if (isAborted()) return;
             tCommit = map.epochTracker.newEpoch();
-            for (ReadOperation<K, Object> readOperation : readSet){
+            for (ReadOperation<K, Object> readOperation : readOps){
+                if (isAborted()) break;
                 readOperation.validate();
             }
         }
@@ -223,13 +231,13 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         }
 
         void releaseLocksAndClearOps(){
-            for (WriteOperation<K, V> wo : writeSet){
+            for (WriteOperation<K, V> wo : writeOps){
                 KeyStatus s = map.keyStatus(wo.key);
                 s.setNotHeld(txnId);
             }
 
-            writeSet.clear();
-            readSet.clear();
+            writeOps.clear();
+            readOps.clear();
         }
 
         public TransactionID txnId(){
@@ -278,19 +286,22 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 this.type = type;
                 this.future = new FutureValue<>();
             }
+
+            //TODO remove prints
             public void apply() {
                 var versionChain = mvccTx.map.versionChain(key);
-                var prev =  versionChain.addNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
-
-                if (type == PUT && prev == null) mvccTx.size.incrementAndGet();
-                else if (type == REMOVE && prev != null) mvccTx.size.decrementAndGet();
-
+                var prev = versionChain.addNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
+                if (type == PUT && prev == null)  mvccTx.size.incrementAndGet();
+                else if (type == REMOVE && prev != null)mvccTx.size.decrementAndGet();
                 future.complete(prev);
 
                 //Removing previous versions
                 if (versionChain.size() % mvccTx.map.versionThreshold == 0){
                     mvccTx.map.gcThread.submitCleanupRequest(key);
                 }
+
+
+
             }
 
 
@@ -315,10 +326,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 if (readType != ReadType.SIZE){
                     this.seen = mvccTx.map.versionChain(key)
                             .findOverlap(mvccTx.tBegin);
-                    return;
-                }
 
-                this.seen = null;
+                }else this.seen = null;
             }
 
             // We could add read semantic aware validation, but let us stick to the paper

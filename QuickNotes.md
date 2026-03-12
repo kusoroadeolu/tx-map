@@ -283,92 +283,76 @@ This was changed to
 if (minVisibleEpoch.epoch != Long.MAX_VALUE && tBegin <= minVisibleEpoch.epoch) return; //Actually gave the gc a chance to prune the older versions
 ```
 
-After this, my numbers improved significantly and variance became actually a bit more reasonable
-**QueueVersionChain**
+After this, my numbers improved significantly and variance reduced a bit
 ```java
-Benchmark                                     Mode  Cnt        Score        Error  Units
-ContentionBenchmark.readHeavy_1thread        thrpt   10  3661999.053 ± 250328.589  ops/s
-ContentionBenchmark.readHeavy_2threads       thrpt   10  2912929.462 ± 407116.088  ops/s
-ContentionBenchmark.readHeavy_4threads       thrpt   10  3805035.143 ± 143883.075  ops/s
-ContentionBenchmark.readHeavy_8threads       thrpt   10  5351705.684 ± 385808.932  ops/s
-ContentionBenchmark.writeHeavy_1thread       thrpt   10  2892186.826 ± 247933.987  ops/s
-ContentionBenchmark.writeHeavy_2threads      thrpt   10  2261478.018 ± 129957.203  ops/s
-ContentionBenchmark.writeHeavy_4threads      thrpt   10  3085586.183 ± 140848.009  ops/s
-ContentionBenchmark.writeHeavy_8threads      thrpt   10  4718734.949 ± 594959.310  ops/s
-```
-
-**NavigableVersionChain**
-```java
-Benchmark                                     Mode  Cnt        Score        Error  Units
-ContentionBenchmark.readHeavy_1thread        thrpt   10  2880727.238 ± 234080.289  ops/s
-ContentionBenchmark.readHeavy_2threads       thrpt   10  2659916.140 ± 431357.576  ops/s
-ContentionBenchmark.readHeavy_4threads       thrpt   10  3948662.816 ± 174838.230  ops/s
-ContentionBenchmark.readHeavy_8threads       thrpt   10  5570659.349 ± 513512.687  ops/s
-ContentionBenchmark.writeHeavy_1thread       thrpt   10  1372610.505 ± 148236.473  ops/s
-ContentionBenchmark.writeHeavy_2threads      thrpt   10  1499086.614 ± 195638.379  ops/s
-ContentionBenchmark.writeHeavy_4threads      thrpt   10  2473431.843 ± 383486.445  ops/s
-ContentionBenchmark.writeHeavy_8threads      thrpt   10  5004266.397 ± 623837.706  ops/s
+Benchmark                                    (versionChainType)   Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread                     queue  thrpt   10  3022274.294 ± 397643.609  ops/s
+ContentionBenchmark.readHeavy_1thread                       nav  thrpt   10  2250631.595 ± 201546.981  ops/s
+ContentionBenchmark.readHeavy_2threads                    queue  thrpt   10  2583840.733 ± 444871.511  ops/s
+ContentionBenchmark.readHeavy_2threads                      nav  thrpt   10  2291496.019 ± 304662.994  ops/s
+ContentionBenchmark.readHeavy_4threads                    queue  thrpt   10  3152546.075 ± 350295.696  ops/s
+ContentionBenchmark.readHeavy_4threads                      nav  thrpt   10  2933701.271 ± 210834.860  ops/s
+ContentionBenchmark.readHeavy_8threads                    queue  thrpt   10  4209719.728 ± 611222.951  ops/s
+ContentionBenchmark.readHeavy_8threads                      nav  thrpt   10  4058722.339 ± 265986.981  ops/s
+ContentionBenchmark.writeHeavy_1thread                    queue  thrpt   10  2467899.289 ± 343129.882  ops/s
+ContentionBenchmark.writeHeavy_1thread                      nav  thrpt   10  1224346.814 ± 276528.783  ops/s
+ContentionBenchmark.writeHeavy_2threads                   queue  thrpt   10  1987672.075 ± 142924.001  ops/s
+ContentionBenchmark.writeHeavy_2threads                     nav  thrpt   10  1474317.537 ± 332782.403  ops/s
+ContentionBenchmark.writeHeavy_4threads                   queue  thrpt   10  2540089.406 ± 107245.569  ops/s
+ContentionBenchmark.writeHeavy_4threads                     nav  thrpt   10  1941961.678 ± 335538.076  ops/s
+ContentionBenchmark.writeHeavy_8threads                   queue  thrpt   10  3310156.822 ± 319971.721  ops/s
+ContentionBenchmark.writeHeavy_8threads                     nav  thrpt   10  3599563.143 ± 712225.130  ops/s
 ```
 
 I was still a bit skeptical about the variance, even though it was pretty reasonable, I realized a lot of memory was getting allocated to my thread local epoch tracker under contention due to `long` boxing when updating epochs, so I decided to try using fast utils synchronized `Long2LongHashMap`, to prevent boxing and allocations under high contention, and rerunning the benchmarks again, allocation on that hotpath dropped to basically zero, and writes under contention suffered a bit, but the variance and read heavy workloads were pretty good
-**QueueVersionChain**
+
 ```java
-Benchmark                                     Mode  Cnt        Score        Error  Units
-ContentionBenchmark.readHeavy_1thread        thrpt   10  4157723.095 ± 336489.774  ops/s
-ContentionBenchmark.readHeavy_2threads       thrpt   10  3162839.645 ± 138953.946  ops/s
-ContentionBenchmark.readHeavy_4threads       thrpt   10  3019937.034 ± 239218.935  ops/s
-ContentionBenchmark.readHeavy_8threads       thrpt   10  2448813.080 ±  99845.756  ops/s
-ContentionBenchmark.writeHeavy_1thread       thrpt   10  2914046.852 ± 293628.559  ops/s
-ContentionBenchmark.writeHeavy_2threads      thrpt   10  2166556.295 ± 236040.158  ops/s
-ContentionBenchmark.writeHeavy_4threads      thrpt   10  2746811.833 ±  92244.601  ops/s
-ContentionBenchmark.writeHeavy_8threads      thrpt   10  2525255.564 ± 118883.084  ops/s
+Benchmark                                    (versionChainType)   Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread                     queue  thrpt   10  3917121.556 ± 191182.041  ops/s
+ContentionBenchmark.readHeavy_1thread                       nav  thrpt   10  2592747.908 ± 192348.108  ops/s
+ContentionBenchmark.readHeavy_2threads                    queue  thrpt   10  2935324.852 ± 380159.702  ops/s
+ContentionBenchmark.readHeavy_2threads                      nav  thrpt   10  2587901.962 ± 253365.744  ops/s
+ContentionBenchmark.readHeavy_4threads                    queue  thrpt   10  2410564.690 ± 394036.694  ops/s
+ContentionBenchmark.readHeavy_4threads                      nav  thrpt   10  2425199.868 ± 109061.792  ops/s
+ContentionBenchmark.readHeavy_8threads                    queue  thrpt   10  2138869.830 ± 106605.873  ops/s
+ContentionBenchmark.readHeavy_8threads                      nav  thrpt   10  2006265.789 ± 154944.074  ops/s
+ContentionBenchmark.writeHeavy_1thread                    queue  thrpt   10  2789016.664 ± 258145.402  ops/s
+ContentionBenchmark.writeHeavy_1thread                      nav  thrpt   10  1247223.769 ± 212243.516  ops/s
+ContentionBenchmark.writeHeavy_2threads                   queue  thrpt   10  2308032.198 ± 234208.698  ops/s
+ContentionBenchmark.writeHeavy_2threads                     nav  thrpt   10  1395297.149 ± 187661.268  ops/s
+ContentionBenchmark.writeHeavy_4threads                   queue  thrpt   10  2285734.168 ± 222636.258  ops/s
+ContentionBenchmark.writeHeavy_4threads                     nav  thrpt   10  1738846.900 ± 503307.766  ops/s
+ContentionBenchmark.writeHeavy_8threads                   queue  thrpt   10  2274919.824 ±  46946.253  ops/s
+ContentionBenchmark.writeHeavy_8threads                     nav  thrpt   10  1893349.970 ± 213244.636  ops/s
 ```
 
-**NavigableVersionChain**
-```java
-
-Benchmark                                     Mode  Cnt        Score        Error  Units
-ContentionBenchmark.readHeavy_1thread        thrpt   10  2544168.495 ± 903588.347  ops/s //Err margins is a bit high but the other are alright
-ContentionBenchmark.readHeavy_2threads       thrpt   10  2869208.043 ± 265690.673  ops/s
-ContentionBenchmark.readHeavy_4threads       thrpt   10  2639582.701 ±  81446.973  ops/s
-ContentionBenchmark.readHeavy_8threads       thrpt   10  2194704.677 ±  97074.338  ops/s
-ContentionBenchmark.writeHeavy_1thread       thrpt   10  1226719.823 ± 118270.073  ops/s
-ContentionBenchmark.writeHeavy_2threads      thrpt   10  1467439.969 ± 223450.814  ops/s
-ContentionBenchmark.writeHeavy_4threads      thrpt   10  2387801.563 ± 203287.563  ops/s
-ContentionBenchmark.writeHeavy_8threads      thrpt   10  2473545.475 ± 395921.112  ops/s
-```
-
-The thrpt was alright but I knew locking the whole map would be an issue in the long run, so I decided to try a generic trick, using primitive arrays as generic types, so instead of boxed long values. Removing shared synchronization overhead in the contended 
+The thrpt was alright, though after some research I found out about a generics trick, using primitive arrays as generic types, so instead of boxed long values. I decided to try this out with CHM and compare it to the serialized long2long version
 ```java
 ConcurrentMap<Long, Long> map //Instead of this, we could do
 ConcurrentMap<Long, long[]> map //No boxing for values
 ```
 
-**QueueVersionChain**
 ```java
-Benchmark                                     Mode  Cnt        Score        Error  Units
-ContentionBenchmark.readHeavy_1thread        thrpt   10  3186560.615 ± 392741.258  ops/s
-ContentionBenchmark.readHeavy_2threads       thrpt   10  2930796.165 ± 373856.487  ops/s
-ContentionBenchmark.readHeavy_4threads       thrpt   10  3703210.385 ± 259485.266  ops/s
-ContentionBenchmark.readHeavy_8threads       thrpt   10  4960148.535 ± 525748.662  ops/s
-ContentionBenchmark.writeHeavy_1thread       thrpt   10  2418084.564 ± 121399.056  ops/s
-ContentionBenchmark.writeHeavy_2threads      thrpt   10  2142431.779 ± 158841.552  ops/s
-ContentionBenchmark.writeHeavy_4threads      thrpt   10  2842341.696 ± 189840.837  ops/s
-ContentionBenchmark.writeHeavy_8threads      thrpt   10  5083798.377 ± 225077.671  ops/s
+Benchmark                                    (versionChainType)   Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread                     queue  thrpt   10  3921045.464 ± 379095.211  ops/s
+ContentionBenchmark.readHeavy_1thread                       nav  thrpt   10  2490400.560 ± 235824.152  ops/s
+ContentionBenchmark.readHeavy_2threads                    queue  thrpt   10  3351486.812 ± 330871.332  ops/s
+ContentionBenchmark.readHeavy_2threads                      nav  thrpt   10  2961814.543 ± 271271.445  ops/s
+ContentionBenchmark.readHeavy_4threads                    queue  thrpt   10  4130101.194 ± 365901.882  ops/s
+ContentionBenchmark.readHeavy_4threads                      nav  thrpt   10  3967520.781 ± 267639.783  ops/s
+ContentionBenchmark.readHeavy_8threads                    queue  thrpt   10  5477847.548 ± 656616.321  ops/s
+ContentionBenchmark.readHeavy_8threads                      nav  thrpt   10  5384214.753 ± 396929.168  ops/s
+ContentionBenchmark.writeHeavy_1thread                    queue  thrpt   10  2948891.898 ± 461806.810  ops/s
+ContentionBenchmark.writeHeavy_1thread                      nav  thrpt   10  1256910.691 ± 203279.439  ops/s
+ContentionBenchmark.writeHeavy_2threads                   queue  thrpt   10  2523596.142 ± 196569.443  ops/s
+ContentionBenchmark.writeHeavy_2threads                     nav  thrpt   10  1408471.703 ± 192463.826  ops/s
+ContentionBenchmark.writeHeavy_4threads                   queue  thrpt   10  2943223.429 ± 276821.883  ops/s
+ContentionBenchmark.writeHeavy_4threads                     nav  thrpt   10  2577599.074 ± 714794.780  ops/s
+ContentionBenchmark.writeHeavy_8threads                   queue  thrpt   10  4064740.729 ± 416730.295  ops/s
+ContentionBenchmark.writeHeavy_8threads                     nav  thrpt   10  4574077.728 ± 549287.881  ops/s
 ```
 
-**NavigableVersionChain**
-```java
-Benchmark                                     Mode  Cnt        Score        Error  Units
-ContentionBenchmark.readHeavy_1thread        thrpt   10  2354203.511 ± 141336.048  ops/s
-ContentionBenchmark.readHeavy_2threads       thrpt   10  2383180.494 ± 144385.498  ops/s
-ContentionBenchmark.readHeavy_4threads       thrpt   10  3433110.630 ± 151963.731  ops/s
-ContentionBenchmark.readHeavy_8threads       thrpt   10  4654988.096 ± 378440.825  ops/s
-ContentionBenchmark.writeHeavy_1thread       thrpt   10  1163631.806 ± 102309.273  ops/s
-ContentionBenchmark.writeHeavy_2threads      thrpt   10  1326401.467 ± 160581.948  ops/s
-ContentionBenchmark.writeHeavy_4threads      thrpt   10  2177222.195 ± 376320.567  ops/s
-ContentionBenchmark.writeHeavy_8threads      thrpt   10  3716040.114 ± 851394.299  ops/s
-```
+
 
 
 ## Zipfian Bench
@@ -486,4 +470,4 @@ ContentionBenchmark.writeHeavy_4threads                   queue  thrpt   10  139
 ContentionBenchmark.writeHeavy_8threads                   queue  thrpt   10  1193581.306 ± 191506.103  ops/s
 ```
 
-To fully understand this drop I compared profile data from this benchmark to those w/o retries. While everything looked **similarish** on the CPU side, the memory side was a different story with memory usage spiking up from ~16GB to almost ~30GB at every iteration. Due to the frequency of aborts, for each retry, a new txn had to be created, meaning more memory allocated for the txn object, its operations, its completable values and at commit, hence more pressure on the GC(Java's GC), hence more GC pauses and lower thrpt 
+To fully understand this drop I compared profile data from this benchmark to those w/o retries. While everything looked **similarish** on the CPU side, however memory was a different story with memory usage spiking up from ~16GB to almost ~30GB at every iteration. Due to the frequency of aborts, for each retry, a new txn had to be created, meaning more memory allocated for the txn object, its operations, its completable values and at commit, hence more pressure on the GC(Java's GC), hence more GC pauses and lower thrpt 
