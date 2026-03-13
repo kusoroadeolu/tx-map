@@ -22,7 +22,7 @@ public class LongToArrayEpochTracker implements ThreadLocalEpochTracker {
     }
 
 
-    //each key will only be accessed by one thread, im using the null check
+    //each key will only be accessed by one thread at most, at a time
     public long currentEpoch(){
         long id = Thread.currentThread().threadId();
         long epoch = currentEpoch.get();

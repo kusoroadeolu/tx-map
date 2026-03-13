@@ -80,6 +80,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         };
     }
 
+    //Stops the background gc thread
     @Override
     public void stop() {
         gcThread.stop();
@@ -90,7 +91,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         return new MvccTx<>(this);
     }
 
-    static class MvccTx<K, V> implements MapTransaction<K, V>{
+    public static class MvccTx<K, V> implements MapTransaction<K, V>{
         private final MvccTransactionalMap<K, V> map;
         private final TransactionID txnId; //The transaction id
         private final long tBegin; // The current txcommit number at the transaction start time
@@ -119,7 +120,6 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         public FutureValue<V> remove(K key) {
             return this.doWrite(key, null, REMOVE);
         }
-
 
 
         FutureValue<V> doWrite(K key, V value, WriteOperation.WriteType type){
@@ -192,6 +192,14 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             return state() == TransactionState.COMMITTED;
         }
 
+        public long tCommit() {
+            return tCommit;
+        }
+
+        public long tBegin() {
+            return tBegin;
+        }
+
         @Override
         public void commit() {
             this.validate();
@@ -201,14 +209,16 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 return;
             }
 
-            for (WriteOperation<K, V> wo : writeOps){
+            // Indexed loop to avoid iterator allocation pressure
+            // reduces allocation from 6GB to ~0 under contention
+            WriteOperation<K, V> wo;
+            for (int i = 0; i < writeOps.size() && (wo = writeOps.get(i)) != null; ++i){
                 wo.apply();
             }
 
-
-            for (ReadOperation<K, Object> ro : readOps){
+            ReadOperation<K, Object> ro;
+            for (int i = 0; i < readOps.size() && (ro = readOps.get(i)) != null; ++i){
                 ro.apply();
-
             }
 
             releaseLocksAndClearOps();
@@ -219,9 +229,10 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         public void validate(){
             if (isAborted()) return;
             tCommit = map.epochTracker.newEpoch();
-            for (ReadOperation<K, Object> readOperation : readOps){
-                if (isAborted()) break;
-                readOperation.validate();
+            ReadOperation<K, Object> ro;
+            for (int i = 0; i < readOps.size() && (ro = readOps.get(i)) != null; ++i){
+                ro.validate();
+                if (isAborted()) return;
             }
         }
 
@@ -231,7 +242,8 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
         }
 
         void releaseLocksAndClearOps(){
-            for (WriteOperation<K, V> wo : writeOps){
+            WriteOperation<K, V> wo;
+            for (int i = 0; i < writeOps.size() && (wo = writeOps.get(i)) != null; ++i){
                 KeyStatus s = map.keyStatus(wo.key);
                 s.setNotHeld(txnId);
             }
@@ -287,7 +299,6 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
                 this.future = new FutureValue<>();
             }
 
-            //TODO remove prints
             public void apply() {
                 var versionChain = mvccTx.map.versionChain(key);
                 var prev = versionChain.addNewVersion(value, mvccTx.tCommit, mvccTx.txnId);
@@ -333,8 +344,7 @@ public class MvccTransactionalMap<K, V> implements TransactionalMap<K, V>{
             // We could add read semantic aware validation, but let us stick to the paper
             public void validate(){
                 if (key == null || mvccTx.isAborted()) return; //If this is a size operation
-                Version<V> overlapAtCommit = mvccTx.map.versionChain(key)
-                        .findOverlap(mvccTx.tCommit); //Find if there's an overlap at commit time
+                Version<V> overlapAtCommit = mvccTx.map.versionChain(key).findOverlap(mvccTx.tCommit); //Find if there's an overlap at commit time
                 if (seen != overlapAtCommit){ //If the version we saw at txn begin isn't what we saw at commit time just abort the whole thing
                     mvccTx.setAborted();
                 }

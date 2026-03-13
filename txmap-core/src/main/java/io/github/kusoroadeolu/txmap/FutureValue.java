@@ -22,7 +22,7 @@ public class FutureValue<V> {
 
     public V get(){
         try {
-            if (future.isDone())return future.get();
+            if (future.isDone()) return future.get();
             return null;
         } catch (ExecutionException | InterruptedException _) {
             return null;

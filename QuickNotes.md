@@ -340,18 +340,42 @@ ContentionBenchmark.readHeavy_2threads                    queue  thrpt   10  335
 ContentionBenchmark.readHeavy_2threads                      nav  thrpt   10  2961814.543 ± 271271.445  ops/s
 ContentionBenchmark.readHeavy_4threads                    queue  thrpt   10  4130101.194 ± 365901.882  ops/s
 ContentionBenchmark.readHeavy_4threads                      nav  thrpt   10  3967520.781 ± 267639.783  ops/s
-ContentionBenchmark.readHeavy_8threads                    queue  thrpt   10  5477847.548 ± 656616.321  ops/s
+ContentionBenchmark.readHeavy_8threads                    queue  thrpt   10  6100773.757 ± 555229.766  ops/s
 ContentionBenchmark.readHeavy_8threads                      nav  thrpt   10  5384214.753 ± 396929.168  ops/s
 ContentionBenchmark.writeHeavy_1thread                    queue  thrpt   10  2948891.898 ± 461806.810  ops/s
 ContentionBenchmark.writeHeavy_1thread                      nav  thrpt   10  1256910.691 ± 203279.439  ops/s
 ContentionBenchmark.writeHeavy_2threads                   queue  thrpt   10  2523596.142 ± 196569.443  ops/s
 ContentionBenchmark.writeHeavy_2threads                     nav  thrpt   10  1408471.703 ± 192463.826  ops/s
 ContentionBenchmark.writeHeavy_4threads                   queue  thrpt   10  2943223.429 ± 276821.883  ops/s
-ContentionBenchmark.writeHeavy_4threads                     nav  thrpt   10  2577599.074 ± 714794.780  ops/s
+ContentionBenchmark.writeHeavy_4threads                     nav  thrpt   10  2636191.583 ± 311031.690  ops/s
 ContentionBenchmark.writeHeavy_8threads                   queue  thrpt   10  4064740.729 ± 416730.295  ops/s
 ContentionBenchmark.writeHeavy_8threads                     nav  thrpt   10  4574077.728 ± 549287.881  ops/s
 ```
 
+
+Since, I've been testing thrpt for my mvcc map for "best case scenarios" i.e. without retries on aborts, so I decided to test with retries on abort. Note that this was base-lined against my map with a QueueVersionChain and Long2ArrayEpochTracker
+
+
+```java
+Benchmark                                    (versionChainType)   Mode  Cnt        Score        Error  Units
+ContentionBenchmark.readHeavy_1thread                     queue  thrpt   10  4255294.022 ± 417518.780  ops/s
+ContentionBenchmark.readHeavy_1thread                       nav  thrpt   10  3026195.253 ± 382190.857  ops/s
+ContentionBenchmark.readHeavy_2threads                    queue  thrpt   10  3727360.460 ± 469491.078  ops/s
+ContentionBenchmark.readHeavy_2threads                      nav  thrpt   10  3310257.104 ± 195179.750  ops/s
+ContentionBenchmark.readHeavy_4threads                    queue  thrpt   10  4222921.041 ± 334896.201  ops/s
+ContentionBenchmark.readHeavy_4threads                      nav  thrpt   10  3352625.744 ± 481297.585  ops/s
+ContentionBenchmark.readHeavy_8threads                    queue  thrpt   10  4512409.390 ± 385141.320  ops/s
+ContentionBenchmark.readHeavy_8threads                      nav  thrpt   10  3414450.281 ± 391240.406  ops/s
+ContentionBenchmark.writeHeavy_1thread                    queue  thrpt   10  2887463.431 ± 507767.083  ops/s
+ContentionBenchmark.writeHeavy_1thread                      nav  thrpt   10  1330658.185 ± 214850.891  ops/s
+ContentionBenchmark.writeHeavy_2threads                   queue  thrpt   10  2083535.454 ± 214987.876  ops/s
+ContentionBenchmark.writeHeavy_2threads                     nav  thrpt   10  1192807.369 ± 222511.666  ops/s
+ContentionBenchmark.writeHeavy_4threads                   queue  thrpt   10  2093721.029 ± 118319.047  ops/s
+ContentionBenchmark.writeHeavy_4threads                     nav  thrpt   10  1337540.905 ± 198100.985  ops/s
+ContentionBenchmark.writeHeavy_8threads                   queue  thrpt   10  1800086.692 ± 403405.040  ops/s
+ContentionBenchmark.writeHeavy_8threads                     nav  thrpt   10  1028280.423 ± 285679.833  ops/s
+```
+To fully understand this drop on the write heavy bench I compared profile data from this benchmark to those w/o retries. While everything looked **similarish** on the CPU side, however memory was a different story with memory usage spiking up from ~16GB to almost ~30GB at every iteration. Due to the frequency of aborts, for each retry, a new txn had to be created, meaning more memory allocated for the txn object, its operations, its completable values and at commit, hence more pressure on the GC(Java's GC), hence more GC pauses and lower thrpt
 
 
 
@@ -457,18 +481,3 @@ ZipfianBenchmark.lowSkew_writeHeavy_8threads:commits                  nav  thrpt
 
 ```
 
-
-Since, I've been testing thrpt for my mvcc map for "best case scenarios" i.e. without retries on aborts, so I decided to test with retries on abort. Note that this was base-lined against my map with a QueueVersionChain and Long2ArrayEpochTracker
-```java
-Benchmark                                    (versionChainType)   Mode  Cnt        Score        Error  Units
-ContentionBenchmark.readHeavy_1thread                     queue  thrpt   10  1210064.106 ± 320644.732  ops/s
-ContentionBenchmark.readHeavy_2threads                    queue  thrpt   10  1511181.782 ± 234672.283  ops/s
-ContentionBenchmark.readHeavy_4threads                    queue  thrpt   10  2200939.214 ± 312049.219  ops/s
-ContentionBenchmark.readHeavy_8threads                    queue  thrpt   10  2836487.345 ± 380214.626  ops/s
-ContentionBenchmark.writeHeavy_1thread                    queue  thrpt   10   941607.296 ± 299855.822  ops/s
-ContentionBenchmark.writeHeavy_2threads                   queue  thrpt   10  1236560.892 ± 240710.149  ops/s
-ContentionBenchmark.writeHeavy_4threads                   queue  thrpt   10  1390331.262 ± 306751.935  ops/s
-ContentionBenchmark.writeHeavy_8threads                   queue  thrpt   10  1193581.306 ± 191506.103  ops/s
-```
-
-To fully understand this drop I compared profile data from this benchmark to those w/o retries. While everything looked **similarish** on the CPU side, however memory was a different story with memory usage spiking up from ~16GB to almost ~30GB at every iteration. Due to the frequency of aborts, for each retry, a new txn had to be created, meaning more memory allocated for the txn object, its operations, its completable values and at commit, hence more pressure on the GC(Java's GC), hence more GC pauses and lower thrpt 

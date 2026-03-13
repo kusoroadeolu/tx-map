@@ -23,7 +23,7 @@ public class GCThread<K, V> {
         this.epoch = new MinEpoch();
         this.scheduler = Executors.newScheduledThreadPool(1, Thread.ofVirtual().factory());
         this.cleanupReqs = new LinkedBlockingQueue<>(); //Here for backpressure, could become a bottleneck later on, but yeah this is alr for now
-        this.thread = Thread.ofPlatform();
+        this.thread = Thread.ofPlatform().daemon().name("worker-gc-thread");
         start();
     }
 
@@ -57,11 +57,11 @@ public class GCThread<K, V> {
         }
 
         void setEpoch(long current){
-            epoch.setRelease(current);
+            epoch.set(current);
         }
 
         long getCurrentEpoch(){
-            return epoch.getAcquire();
+            return epoch.get();
         }
     }
 }

@@ -12,6 +12,7 @@
     <modules>
         <module>txmap-core</module>
         <module>txmap-benchmarks</module>
+        <module>txmap-stress</module>
     </modules>
 
     <dependencies>

@@ -10,14 +10,14 @@ import java.util.concurrent.ConcurrentMap;
 
 //A simple map holding the tBegin numbers of each current transaction, when a key's version chain reaches a certain size,
 // the write operation working on that key clears all unreachable versions i.e. V.endts <= tBegin
-public class ActiveTransactionsKeeper {
+public class SerialTransactionKeeper {
     private final ConcurrentMap<TransactionID, Long> map;
     private final Queue<ModifyRequest> requests;
     private final Thread.Builder.OfPlatform thread;
     private volatile boolean stop = false;
     private volatile long minActiveTBegin = Long.MAX_VALUE;
 
-    public ActiveTransactionsKeeper() {
+    public SerialTransactionKeeper() {
         this.map = new ConcurrentHashMap<>();
         this.requests = new ConcurrentLinkedQueue<>();
         this.thread = Thread.ofPlatform();

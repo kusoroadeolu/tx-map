@@ -2,14 +2,14 @@ package io.github.kusoroadeolu.txmap.txkeeper;
 
 import io.github.kusoroadeolu.txmap.TransactionID;
 
-public class PartitionedActiveTransactionKeeper {
+public class SegmentedTransactionKeeper {
     private static final int CPU = Runtime.getRuntime().availableProcessors();
-    private final ActiveTransactionsKeeper[] keepers;
+    private final SerialTransactionKeeper[] keepers;
 
-    public PartitionedActiveTransactionKeeper() {
-        this.keepers = new ActiveTransactionsKeeper[CPU];
+    public SegmentedTransactionKeeper() {
+        this.keepers = new SerialTransactionKeeper[CPU];
         for (int i = 0; i < CPU; ++i){
-            keepers[i] = new ActiveTransactionsKeeper();
+            keepers[i] = new SerialTransactionKeeper();
         }
     }
 

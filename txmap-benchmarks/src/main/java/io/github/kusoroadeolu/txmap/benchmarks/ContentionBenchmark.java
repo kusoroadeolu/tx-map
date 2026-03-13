@@ -10,6 +10,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 
@@ -40,12 +41,15 @@ public class ContentionBenchmark {
         int opIndex  = 0;   // Used to decide read vs write based on ratio
         public long commits = 0;
         public long aborts  = 0;
+        public Random random;
 
         String nextKey() {
             String key = KEYS[keyIndex % KEYS.length];
             keyIndex++;
             return key;
         }
+
+
     }
 
     @Setup(Level.Trial)
