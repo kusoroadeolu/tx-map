@@ -101,28 +101,28 @@ public class UnboundCombiner<E> implements Combiner<E>{
     @Override
     @SuppressWarnings("unchecked")
     /*
-    * Initialize node from thread local
-    * Assign action and set result to null
-    * If our node is inactive, enqueue using a single cas to the head of the queue
-    *   Repeatedly
-    *      check if our action is null
-    *      try to acquire the lock
-    *      if we fail
-    *           idle
-    *           after idling, check if we're inactive, if so enqueue using a single cas to the head of the queue
-    *      else we acquire the lock
-    *           increment the combiner pass count
-    *           scan the whole queue
-    *           while scanning,
-    *               if the action of a node, is not null,
-    *                   apply it, null their action and set their combine pass count
-    *               else skip it
-    *           after scanning
-    *               if the combine pass count exceeds the threshold,
-    *                   scan the queue, looking for unused nodes, and unlink them, ensure we don't modify from the head
-    *           unlock the lock
-    *               if our action has not been applied after we became the combiner, it means our node was removed by a previous combiner ,continue spinning
-    * */
+     * Initialize node from thread local
+     * Assign action and set result to null
+     * If our node is inactive, enqueue using a single cas to the head of the queue
+     *   Repeatedly
+     *      check if our action is null
+     *      try to acquire the lock
+     *      if we fail
+     *           idle
+     *           after idling, check if we're inactive, if so enqueue using a single cas to the head of the queue
+     *      else we acquire the lock
+     *           increment the combiner pass count
+     *           scan the whole queue
+     *           while scanning,
+     *               if the action of a node, is not null,
+     *                   apply it, null their action and set their combine pass count
+     *               else skip it
+     *           after scanning
+     *               if the combine pass count exceeds the threshold,
+     *                   scan the queue, looking for unused nodes, and unlink them, ensure we don't modify from the head
+     *           unlock the lock
+     *               if our action has not been applied after we became the combiner, it means our node was removed by a previous combiner ,continue spinning
+     * */
     public <R> R combine(Action<E, R> action, IdleStrategy strategy) {
         Node<E, R> node = (Node<E, R>) local.get();
         var stateful = node.statefulAction; //Stateful action reference is always visible due to final field visibility guarantees
@@ -171,7 +171,7 @@ public class UnboundCombiner<E> implements Combiner<E>{
     @SuppressWarnings("unchecked")
     void scanCombineApply(){
         Node<E, Object> seenHead = (Node<E, Object>) this.head.get(); //H head should never be null, it should either be the dummy or some other node
-        Node<E, Object> node = seenHead; //Copy seen head so we don't modify it
+        Node<E, Object> node = seenHead; //Copy seen head
         ++count;
 
         while (node != null && !node.equals(DUMMY)){ //Ensure node != null before we continue
