@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Benchmark)
 @Warmup(iterations = 10, time = 1)
 @Measurement(iterations = 5, time = 1)
-@Fork(value = 2, jvmArgsPrepend = {
+@Fork(value = 3, jvmArgsPrepend = {
         "-XX:+UnlockDiagnosticVMOptions",
         "-XX:+DebugNonSafepoints"
 })

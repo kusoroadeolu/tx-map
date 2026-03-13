@@ -358,102 +358,103 @@ ContentionBenchmark.writeHeavy_8threads                     nav  thrpt   10  457
 ## Zipfian Bench
 ```java
 Benchmark                                              (versionChainType)   Mode  Cnt         Score        Error  Units
-ZipfianBenchmark.highSkew_readHeavy_1thread                         queue  thrpt   10   3587124.850 ± 394912.448  ops/s
-ZipfianBenchmark.highSkew_readHeavy_1thread:aborts                  queue  thrpt   10           ≈ 0                   #
-ZipfianBenchmark.highSkew_readHeavy_1thread:commits                 queue  thrpt   10  35892531.000                   #
-ZipfianBenchmark.highSkew_readHeavy_1thread                           nav  thrpt   10   3564370.055 ± 257853.007  ops/s
-ZipfianBenchmark.highSkew_readHeavy_1thread:aborts                    nav  thrpt   10           ≈ 0                   #
-ZipfianBenchmark.highSkew_readHeavy_1thread:commits                   nav  thrpt   10  35672000.000                   #
-ZipfianBenchmark.highSkew_readHeavy_2threads                        queue  thrpt   10   2813805.910 ± 211539.297  ops/s
-ZipfianBenchmark.highSkew_readHeavy_2threads:aborts                 queue  thrpt   10     23084.000                   #
-ZipfianBenchmark.highSkew_readHeavy_2threads:commits                queue  thrpt   10  28145240.000                   #
-ZipfianBenchmark.highSkew_readHeavy_2threads                          nav  thrpt   10   2998370.690 ± 511333.901  ops/s
-ZipfianBenchmark.highSkew_readHeavy_2threads:aborts                   nav  thrpt   10     32441.000                   #
-ZipfianBenchmark.highSkew_readHeavy_2threads:commits                  nav  thrpt   10  29976981.000                   #
-ZipfianBenchmark.highSkew_readHeavy_4threads                        queue  thrpt   10   3807242.174 ± 305886.942  ops/s
-ZipfianBenchmark.highSkew_readHeavy_4threads:aborts                 queue  thrpt   10     75468.000                   #
-ZipfianBenchmark.highSkew_readHeavy_4threads:commits                queue  thrpt   10  38042243.000                   #
-ZipfianBenchmark.highSkew_readHeavy_4threads                          nav  thrpt   10   3852022.421 ± 390737.519  ops/s
-ZipfianBenchmark.highSkew_readHeavy_4threads:aborts                   nav  thrpt   10     93332.000                   #
-ZipfianBenchmark.highSkew_readHeavy_4threads:commits                  nav  thrpt   10  38494288.000                   #
-ZipfianBenchmark.highSkew_readHeavy_8threads                        queue  thrpt   10   5339531.735 ± 597705.537  ops/s
-ZipfianBenchmark.highSkew_readHeavy_8threads:aborts                 queue  thrpt   10    327606.000                   #
-ZipfianBenchmark.highSkew_readHeavy_8threads:commits                queue  thrpt   10  55406996.000                   #
-ZipfianBenchmark.highSkew_readHeavy_8threads                          nav  thrpt   10   5331911.946 ± 521609.797  ops/s
-ZipfianBenchmark.highSkew_readHeavy_8threads:aborts                   nav  thrpt   10    311179.000                   #
-ZipfianBenchmark.highSkew_readHeavy_8threads:commits                  nav  thrpt   10  54722052.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_1thread                        queue  thrpt   10   2747507.247 ± 374541.521  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_1thread:aborts                 queue  thrpt   10           ≈ 0                   #
-ZipfianBenchmark.highSkew_writeHeavy_1thread:commits                queue  thrpt   10  27503956.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_1thread                          nav  thrpt   10   2632933.973 ± 175895.690  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_1thread:aborts                   nav  thrpt   10           ≈ 0                   #
-ZipfianBenchmark.highSkew_writeHeavy_1thread:commits                  nav  thrpt   10  26351636.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_2threads                       queue  thrpt   10   2608325.735 ± 239815.981  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_2threads:aborts                queue  thrpt   10     78388.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_2threads:commits               queue  thrpt   10  26019361.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_2threads                         nav  thrpt   10   2461324.038 ± 268959.952  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_2threads:aborts                  nav  thrpt   10     90564.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_2threads:commits                 nav  thrpt   10  24546747.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_4threads                       queue  thrpt   10   3335554.939 ± 353091.721  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_4threads:aborts                queue  thrpt   10    412638.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_4threads:commits               queue  thrpt   10  32984577.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_4threads                         nav  thrpt   10   3182648.722 ± 520399.071  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_4threads:aborts                  nav  thrpt   10    443857.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_4threads:commits                 nav  thrpt   10  31447568.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_8threads                       queue  thrpt   10   4860638.422 ± 496504.157  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_8threads:aborts                queue  thrpt   10   1492884.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_8threads:commits               queue  thrpt   10  48284002.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_8threads                         nav  thrpt   10   4570910.666 ± 624439.782  ops/s
-ZipfianBenchmark.highSkew_writeHeavy_8threads:aborts                  nav  thrpt   10   1690078.000                   #
-ZipfianBenchmark.highSkew_writeHeavy_8threads:commits                 nav  thrpt   10  45161737.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_1thread                          queue  thrpt   10   3879067.543 ± 210954.408  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_1thread:aborts                   queue  thrpt   10           ≈ 0                   #
-ZipfianBenchmark.lowSkew_readHeavy_1thread:commits                  queue  thrpt   10  38831940.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_1thread                            nav  thrpt   10   3753850.224 ± 358536.765  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_1thread:aborts                     nav  thrpt   10           ≈ 0                   #
-ZipfianBenchmark.lowSkew_readHeavy_1thread:commits                    nav  thrpt   10  37560460.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_2threads                         queue  thrpt   10   3217866.180 ± 467544.629  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_2threads:aborts                  queue  thrpt   10      3085.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_2threads:commits                 queue  thrpt   10  32218393.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_2threads                           nav  thrpt   10   3190668.497 ± 300142.149  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_2threads:aborts                    nav  thrpt   10      4376.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_2threads:commits                   nav  thrpt   10  31932620.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_4threads                         queue  thrpt   10   3628276.600 ± 156491.134  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_4threads:aborts                  queue  thrpt   10      8230.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_4threads:commits                 queue  thrpt   10  36309294.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_4threads                           nav  thrpt   10   3856424.314 ± 485528.801  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_4threads:aborts                    nav  thrpt   10     11971.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_4threads:commits                   nav  thrpt   10  38601507.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_8threads                         queue  thrpt   10   5761719.760 ± 562265.372  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_8threads:aborts                  queue  thrpt   10     37352.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_8threads:commits                 queue  thrpt   10  58959253.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_8threads                           nav  thrpt   10   5445469.793 ± 389751.770  ops/s
-ZipfianBenchmark.lowSkew_readHeavy_8threads:aborts                    nav  thrpt   10     38025.000                   #
-ZipfianBenchmark.lowSkew_readHeavy_8threads:commits                   nav  thrpt   10  56191045.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_1thread                         queue  thrpt   10   2515940.723 ± 289108.803  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_1thread:aborts                  queue  thrpt   10           ≈ 0                   #
-ZipfianBenchmark.lowSkew_writeHeavy_1thread:commits                 queue  thrpt   10  25178501.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_1thread                           nav  thrpt   10   2723393.615 ± 233666.183  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_1thread:aborts                    nav  thrpt   10           ≈ 0                   #
-ZipfianBenchmark.lowSkew_writeHeavy_1thread:commits                   nav  thrpt   10  27254055.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_2threads                        queue  thrpt   10   2443699.949 ± 308272.635  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_2threads:aborts                 queue  thrpt   10      7982.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_2threads:commits                queue  thrpt   10  24458242.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_2threads                          nav  thrpt   10   2409437.088 ± 191368.609  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_2threads:aborts                   nav  thrpt   10     10506.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_2threads:commits                  nav  thrpt   10  24114531.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_4threads                        queue  thrpt   10   3664393.179 ± 311993.438  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_4threads:aborts                 queue  thrpt   10     51242.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_4threads:commits                queue  thrpt   10  36635131.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_4threads                          nav  thrpt   10   3297652.701 ± 122711.899  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_4threads:aborts                   nav  thrpt   10     56475.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_4threads:commits                  nav  thrpt   10  32972426.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_8threads                        queue  thrpt   10   5016094.569 ± 381245.960  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_8threads:aborts                 queue  thrpt   10    201569.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_8threads:commits                queue  thrpt   10  50968471.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_8threads                          nav  thrpt   10   4887355.054 ± 439293.926  ops/s
-ZipfianBenchmark.lowSkew_writeHeavy_8threads:aborts                   nav  thrpt   10    216819.000                   #
-ZipfianBenchmark.lowSkew_writeHeavy_8threads:commits                  nav  thrpt   10  49517015.000                   #
+ZipfianBenchmark.highSkew_readHeavy_1thread                         queue  thrpt   15   2949543.225 ± 605058.541  ops/s
+ZipfianBenchmark.highSkew_readHeavy_1thread:aborts                  queue  thrpt   15           ≈ 0                   #
+ZipfianBenchmark.highSkew_readHeavy_1thread:commits                 queue  thrpt   15  44366039.000                   #
+ZipfianBenchmark.highSkew_readHeavy_1thread                           nav  thrpt   15   1502361.649 ± 181065.109  ops/s
+ZipfianBenchmark.highSkew_readHeavy_1thread:aborts                    nav  thrpt   15           ≈ 0                   #
+ZipfianBenchmark.highSkew_readHeavy_1thread:commits                   nav  thrpt   15  22555685.000                   #
+ZipfianBenchmark.highSkew_readHeavy_2threads                        queue  thrpt   15   3450096.540 ± 247576.046  ops/s
+ZipfianBenchmark.highSkew_readHeavy_2threads:aborts                 queue  thrpt   15     69704.000                   #
+ZipfianBenchmark.highSkew_readHeavy_2threads:commits                queue  thrpt   15  51722355.000                   #
+ZipfianBenchmark.highSkew_readHeavy_2threads                          nav  thrpt   15   2027477.224 ± 105458.277  ops/s
+ZipfianBenchmark.highSkew_readHeavy_2threads:aborts                   nav  thrpt   15     54365.000                   #
+ZipfianBenchmark.highSkew_readHeavy_2threads:commits                  nav  thrpt   15  30436189.000                   #
+ZipfianBenchmark.highSkew_readHeavy_4threads                        queue  thrpt   15   4523013.425 ± 159685.613  ops/s
+ZipfianBenchmark.highSkew_readHeavy_4threads:aborts                 queue  thrpt   15    236593.000                   #
+ZipfianBenchmark.highSkew_readHeavy_4threads:commits                queue  thrpt   15  67689178.000                   #
+ZipfianBenchmark.highSkew_readHeavy_4threads                          nav  thrpt   15   2760282.492 ± 158198.932  ops/s
+ZipfianBenchmark.highSkew_readHeavy_4threads:aborts                   nav  thrpt   15    190749.000                   #
+ZipfianBenchmark.highSkew_readHeavy_4threads:commits                  nav  thrpt   15  41264618.000                   #
+ZipfianBenchmark.highSkew_readHeavy_8threads                        queue  thrpt   15   5543931.259 ± 605323.484  ops/s
+ZipfianBenchmark.highSkew_readHeavy_8threads:aborts                 queue  thrpt   15    661132.000                   #
+ZipfianBenchmark.highSkew_readHeavy_8threads:commits                queue  thrpt   15  83774318.000                   #
+ZipfianBenchmark.highSkew_readHeavy_8threads                          nav  thrpt   15   3198280.023 ± 316016.939  ops/s
+ZipfianBenchmark.highSkew_readHeavy_8threads:aborts                   nav  thrpt   15    538522.000                   #
+ZipfianBenchmark.highSkew_readHeavy_8threads:commits                  nav  thrpt   15  48805059.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_1thread                        queue  thrpt   15   2387028.597 ± 571382.835  ops/s
+ZipfianBenchmark.highSkew_writeHeavy_1thread:aborts                 queue  thrpt   15           ≈ 0                   #
+ZipfianBenchmark.highSkew_writeHeavy_1thread:commits                queue  thrpt   15  35842655.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_1thread                          nav  thrpt   15   1082192.894 ±  97205.144  ops/s
+ZipfianBenchmark.highSkew_writeHeavy_1thread:aborts                   nav  thrpt   15           ≈ 0                   #
+ZipfianBenchmark.highSkew_writeHeavy_1thread:commits                  nav  thrpt   15  16410745.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_2threads                       queue  thrpt   15   3156547.488 ± 238160.889  ops/s
+ZipfianBenchmark.highSkew_writeHeavy_2threads:aborts                queue  thrpt   15    373998.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_2threads:commits               queue  thrpt   15  47082464.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_2threads                         nav  thrpt   15   1394444.818 ± 145291.222  ops/s
+ZipfianBenchmark.highSkew_writeHeavy_2threads:aborts                  nav  thrpt   15    266347.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_2threads:commits                 nav  thrpt   15  21149641.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_4threads                       queue  thrpt   15   3818498.807 ± 153931.852  ops/s
+ZipfianBenchmark.highSkew_writeHeavy_4threads:aborts                queue  thrpt   15   1387376.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_4threads:commits               queue  thrpt   15  56177520.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_4threads                         nav  thrpt   15   1785457.350 ± 200900.647  ops/s
+ZipfianBenchmark.highSkew_writeHeavy_4threads:aborts                  nav  thrpt   15    765630.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_4threads:commits                 nav  thrpt   15  26150199.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_8threads                       queue  thrpt   15   3802122.606 ± 477946.109  ops/s
+ZipfianBenchmark.highSkew_writeHeavy_8threads:aborts                queue  thrpt   15   3091554.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_8threads:commits               queue  thrpt   15  56717661.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_8threads                         nav  thrpt   15   1887758.475 ± 288140.811  ops/s
+ZipfianBenchmark.highSkew_writeHeavy_8threads:aborts                  nav  thrpt   15   1841991.000                   #
+ZipfianBenchmark.highSkew_writeHeavy_8threads:commits                 nav  thrpt   15  27973124.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_1thread                          queue  thrpt   15   3415873.599 ± 196327.765  ops/s
+ZipfianBenchmark.lowSkew_readHeavy_1thread:aborts                   queue  thrpt   15           ≈ 0                   #
+ZipfianBenchmark.lowSkew_readHeavy_1thread:commits                  queue  thrpt   15  51286938.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_1thread                            nav  thrpt   15   1365969.251 ±  72495.450  ops/s
+ZipfianBenchmark.lowSkew_readHeavy_1thread:aborts                     nav  thrpt   15           ≈ 0                   #
+ZipfianBenchmark.lowSkew_readHeavy_1thread:commits                    nav  thrpt   15  20513068.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_2threads                         queue  thrpt   15   3725355.916 ± 230330.986  ops/s
+ZipfianBenchmark.lowSkew_readHeavy_2threads:aborts                  queue  thrpt   15      9229.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_2threads:commits                 queue  thrpt   15  55938308.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_2threads                           nav  thrpt   15   1884607.406 ± 163528.450  ops/s
+ZipfianBenchmark.lowSkew_readHeavy_2threads:aborts                    nav  thrpt   15     58699.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_2threads:commits                   nav  thrpt   15  28293660.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_4threads                         queue  thrpt   15   4671228.113 ± 232495.224  ops/s
+ZipfianBenchmark.lowSkew_readHeavy_4threads:aborts                  queue  thrpt   15     34337.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_4threads:commits                 queue  thrpt   15  70192449.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_4threads                           nav  thrpt   15   2670070.306 ± 217270.577  ops/s
+ZipfianBenchmark.lowSkew_readHeavy_4threads:aborts                    nav  thrpt   15     29936.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_4threads:commits                   nav  thrpt   15  40201040.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_8threads                         queue  thrpt   15   5976820.187 ± 335476.830  ops/s
+ZipfianBenchmark.lowSkew_readHeavy_8threads:aborts                  queue  thrpt   15    114780.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_8threads:commits                 queue  thrpt   15  91088264.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_8threads                           nav  thrpt   15   3510067.800 ± 270407.070  ops/s
+ZipfianBenchmark.lowSkew_readHeavy_8threads:aborts                    nav  thrpt   15    109459.000                   #
+ZipfianBenchmark.lowSkew_readHeavy_8threads:commits                   nav  thrpt   15  53818747.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_1thread                         queue  thrpt   15   2637877.439 ± 117063.819  ops/s
+ZipfianBenchmark.lowSkew_writeHeavy_1thread:aborts                  queue  thrpt   15           ≈ 0                   #
+ZipfianBenchmark.lowSkew_writeHeavy_1thread:commits                 queue  thrpt   15  39603389.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_1thread                           nav  thrpt   15    974789.590 ±  58512.151  ops/s
+ZipfianBenchmark.lowSkew_writeHeavy_1thread:aborts                    nav  thrpt   15           ≈ 0                   #
+ZipfianBenchmark.lowSkew_writeHeavy_1thread:commits                   nav  thrpt   15  14741885.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_2threads                        queue  thrpt   15   3052438.175 ± 229338.826  ops/s
+ZipfianBenchmark.lowSkew_writeHeavy_2threads:aborts                 queue  thrpt   15     49874.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_2threads:commits                queue  thrpt   15  45828520.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_2threads                          nav  thrpt   15   1376527.766 ± 119123.444  ops/s
+ZipfianBenchmark.lowSkew_writeHeavy_2threads:aborts                   nav  thrpt   15     26142.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_2threads:commits                  nav  thrpt   15  20844385.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_4threads                        queue  thrpt   15   3753860.923 ± 146870.699  ops/s
+ZipfianBenchmark.lowSkew_writeHeavy_4threads:aborts                 queue  thrpt   15    218034.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_4threads:commits                queue  thrpt   15  56177050.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_4threads                          nav  thrpt   15   1816686.176 ± 283857.758  ops/s
+ZipfianBenchmark.lowSkew_writeHeavy_4threads:aborts                   nav  thrpt   15    153301.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_4threads:commits                  nav  thrpt   15  27613979.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_8threads                        queue  thrpt   15   4052740.379 ± 427334.718  ops/s
+ZipfianBenchmark.lowSkew_writeHeavy_8threads:aborts                 queue  thrpt   15    563609.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_8threads:commits                queue  thrpt   15  63042618.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_8threads                          nav  thrpt   15   1868367.977 ± 247523.476  ops/s
+ZipfianBenchmark.lowSkew_writeHeavy_8threads:aborts                   nav  thrpt   15    383145.000                   #
+ZipfianBenchmark.lowSkew_writeHeavy_8threads:commits                  nav  thrpt   15  28943769.000                   #
+
 ```
 
 
