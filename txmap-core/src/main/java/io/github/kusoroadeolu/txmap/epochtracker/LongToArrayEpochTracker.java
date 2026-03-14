@@ -40,7 +40,7 @@ public class LongToArrayEpochTracker implements ThreadLocalEpochTracker {
 
     //Find the minimum active epoch
     @Override
-    public long minActiveEpoch(){
+    public long minVisibleEpoch(){
         return activeTxs.values().stream()
                 .map(arr -> arr[0])
                 .filter(l -> l != NO_ACTIVE_TXN)

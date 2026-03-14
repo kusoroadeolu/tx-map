@@ -35,7 +35,7 @@ public class Long2LongEpochTracker implements ThreadLocalEpochTracker{
     }
 
     @Override
-    public long minActiveEpoch() {
+    public long minVisibleEpoch() {
         long min = currentEpoch.get();
         for (long value : activeTxs.values()) {
             if (value != NO_ACTIVE_TXN && value < min) {

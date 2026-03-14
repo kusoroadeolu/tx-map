@@ -32,7 +32,7 @@ public class GCThread<K, V> {
     }
 
     private void start(){
-        scheduler.scheduleAtFixedRate(() -> this.epoch.setEpoch(tracker.minActiveEpoch()), 0, 100 ,TimeUnit.MILLISECONDS);
+        scheduler.scheduleAtFixedRate(() -> this.epoch.setEpoch(tracker.minVisibleEpoch()), 0, 100 ,TimeUnit.MILLISECONDS);
         thread.start(() -> {
             while (!stop){
                 K current;

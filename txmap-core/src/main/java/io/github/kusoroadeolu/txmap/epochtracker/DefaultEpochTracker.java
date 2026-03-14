@@ -38,7 +38,7 @@ public class DefaultEpochTracker implements EpochTracker {
 
     //Find the minimum active epoch
     @Override
-    public long minActiveEpoch(){
+    public long minVisibleEpoch(){
         return activeTxs.keySet().stream().min(Long::compare).orElse(currentEpoch.get());
     }
 

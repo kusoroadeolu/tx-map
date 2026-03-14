@@ -7,6 +7,6 @@ public interface EpochTracker {
 
     void leaveEpoch(long epoch);
 
-    //Find the minimum active epoch
-    long minActiveEpoch();
+    //Find the minimum visible epoch
+    long minVisibleEpoch();
 }
