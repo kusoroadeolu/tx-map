@@ -4,9 +4,6 @@ This transactional map uses MVCC to allow readers and writers to operate without
 
 # Benchmarks
 ## Zipfian Bench
-### No retries
-
-## Zipfian Bench
 ```java
 Benchmark                                              (versionChainType)   Mode  Cnt         Score        Error  Units
 ZipfianBenchmark.highSkew_readHeavy_1thread                         queue  thrpt   15   2949543.225 ± 605058.541  ops/s
