@@ -86,9 +86,9 @@ public class CopyOnWriteTransactionalMap<K, V> implements TransactionalMap<K, V>
         }
 
         @SuppressWarnings("unchecked")
-        public FutureValue<V> get(K key) {
+        public FutureValue<Option<V>> get(K key) {
             var future = new FutureValue<V>();
-            return (FutureValue<V>) this.registerReadOp(key, GET, future);
+            return (FutureValue<Option<V>>) this.registerReadOp(key, GET, future);
         }
 
         @SuppressWarnings("unchecked")

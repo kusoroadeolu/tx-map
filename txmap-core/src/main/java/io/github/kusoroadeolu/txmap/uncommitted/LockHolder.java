@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class LockHolder<K, V> {
+public class LockHolder<K> {
     private final ConcurrentMap<K, Lock> map;
 
     public LockHolder() {

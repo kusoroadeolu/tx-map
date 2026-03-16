@@ -19,14 +19,14 @@ import java.util.function.Predicate;
 * */
 class GuardedTxSet {
     private final Set<Transaction> txSet;
-    private final ReentrantLock writeLock;
+    private final Lock writeLock;
     private final AtomicInteger readerCount;
     private volatile Latch latch;
 
 
     //WRITER STATUS
     public static final int FREE = 0;
-    public static final int HELD = 2;
+    public static final int HELD = 1;
     private final static Latch FREE_LATCH = new Latch(FREE, null ,null);
 
 
@@ -43,6 +43,7 @@ class GuardedTxSet {
     public boolean lock(Predicate<Set<GuardedTxSet>> shouldHold, Set<GuardedTxSet> held, Transaction tx){
         if (shouldHold.test(held)){
             this.lock();
+            //Linearization point, where a writer declares intent
             latch = new Latch(HELD, tx.parent().unwrap() ,new CountDownLatch(1)); //Set both HELD and latch as a single atomic op. Prevents a scenario where a reader sees held but sees an old value of latch
             while (readerCount.get() > 0) Thread.onSpinWait(); //Wait for existing readers to commit
             return true;

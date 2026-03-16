@@ -3,28 +3,16 @@ package io.github.kusoroadeolu.txmap.benchmarks;
 import io.github.kusoroadeolu.txmap.TransactionalMap;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * Contended key throughput benchmark — multiple threads, small shared key pool.
- *
- * Goal: measure throughput when conflicts are frequent.
- * All threads compete over a fixed pool of 4 keys so collisions are inevitable.
- *
- * Three contention profiles:
- *  - Read heavy  (90% get, 10% put)
- *  - Balanced    (50% get, 50% put)
- *  - Write heavy (10% get, 90% put)
- *
- * What to look for:
- *  - How throughput degrades as thread count and write ratio increase
- *  - Whether write-heavy + high threads causes throughput to collapse
- */
+
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
-@Warmup(iterations = 5, time = 1)
+@Warmup(iterations = 10, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(2)
 public class ContentionBenchmark {
@@ -54,7 +42,7 @@ public class ContentionBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        txMap = TransactionalMap.createReadUncommitted();
+        txMap = TransactionalMap.createPessimistic();
         // Pre-populate all keys so removes and gets have something to work with
         try (var tx = txMap.beginTx()) {
             for (String key : KEYS) tx.put(key, 0);
@@ -90,33 +78,33 @@ public class ContentionBenchmark {
         readHeavy(ts, bh);
     }
 
-    // -------------------------------------------------------------------------
-    // Balanced — 50% get, 50% put
-    // -------------------------------------------------------------------------
-
-    @Benchmark
-    @Threads(1)
-    public void balanced_1thread(ThreadState ts, Blackhole bh) {
-        balanced(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(2)
-    public void balanced_2threads(ThreadState ts , Blackhole bh) {
-        balanced(ts, bh);
-    }
-
-    @Benchmark
-    @Threads(4)
-    public void balanced_4threads(ThreadState ts, Blackhole bh) {
-        balanced(ts,bh);
-    }
-
-    @Benchmark
-    @Threads(8)
-    public void balanced_8threads(ThreadState ts, Blackhole bh) {
-        balanced(ts, bh);
-    }
+//    // -------------------------------------------------------------------------
+//    // Balanced — 50% get, 50% put
+//    // -------------------------------------------------------------------------
+//
+//    @Benchmark
+//    @Threads(1)
+//    public void balanced_1thread(ThreadState ts, Blackhole bh) {
+//        balanced(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(2)
+//    public void balanced_2threads(ThreadState ts , Blackhole bh) {
+//        balanced(ts, bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(4)
+//    public void balanced_4threads(ThreadState ts, Blackhole bh) {
+//        balanced(ts,bh);
+//    }
+//
+//    @Benchmark
+//    @Threads(8)
+//    public void balanced_8threads(ThreadState ts, Blackhole bh) {
+//        balanced(ts, bh);
+//    }
 
     // -------------------------------------------------------------------------
     // Write heavy — 90% put, 10% get
@@ -183,6 +171,16 @@ public class ContentionBenchmark {
                 bh.consume(future.get());
                 bh.consume(future2.get());
             }
+        }
+    }
+
+    static class JMHRunner {
+        void main() throws Exception {
+            var opt = new OptionsBuilder()
+                    .include(ContentionBenchmark.class.getSimpleName())
+                    .addProfiler("jfr", "dir=C:\\jfr-output")
+                    .build();
+            new Runner(opt).run();
         }
     }
 }

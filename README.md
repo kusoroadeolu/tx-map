@@ -47,14 +47,15 @@ ContentionBenchmark.balanced_1thread     thrpt   10   991930.811 ± 224666.114  
 ContentionBenchmark.balanced_2threads    thrpt   10  1237688.796 ± 254630.893  ops/s
 ContentionBenchmark.balanced_4threads    thrpt   10   447711.418 ±  19922.407  ops/s
 ContentionBenchmark.balanced_8threads    thrpt   10   421867.271 ± 132103.868  ops/s
-ContentionBenchmark.readHeavy_1thread    thrpt   10  1382435.216 ± 229931.473  ops/s
-ContentionBenchmark.readHeavy_2threads   thrpt   10  1678696.356 ±  79501.504  ops/s
-ContentionBenchmark.readHeavy_4threads   thrpt   10  1519950.501 ±  39373.303  ops/s
-ContentionBenchmark.readHeavy_8threads   thrpt   10   931462.384 ±  17492.271  ops/s
-ContentionBenchmark.writeHeavy_1thread   thrpt   10   952248.582 ± 101669.762  ops/s
-ContentionBenchmark.writeHeavy_2threads  thrpt   10  1267212.992 ±  84527.247  ops/s
-ContentionBenchmark.writeHeavy_4threads  thrpt   10   395840.268 ±  40371.726  ops/s
-ContentionBenchmark.writeHeavy_8threads  thrpt   10   404606.840 ±   7423.453  ops/s
+ContentionBenchmark.readHeavy_1thread    thrpt   10  1357452.744 ±  65934.902  ops/s
+ContentionBenchmark.readHeavy_2threads   thrpt   10  1488922.174 ± 138588.278  ops/s
+ContentionBenchmark.readHeavy_4threads   thrpt   10  1308303.200 ± 191884.477  ops/s
+ContentionBenchmark.readHeavy_8threads   thrpt   10   947418.297 ± 149527.185  ops/s
+ContentionBenchmark.writeHeavy_1thread   thrpt   10   840174.769 ± 160634.471  ops/s
+ContentionBenchmark.writeHeavy_2threads  thrpt   10   849624.621 ± 285708.208  ops/s
+ContentionBenchmark.writeHeavy_4threads  thrpt   10   386679.166 ±  66931.571  ops/s
+ContentionBenchmark.writeHeavy_8threads  thrpt   10   354474.899 ±  63060.809  ops/s
+
 
 Read Uncommitted
 Benchmark                                 Mode  Cnt        Score        Error  Units

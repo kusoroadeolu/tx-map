@@ -31,7 +31,7 @@ import static io.github.kusoroadeolu.txmap.Operation.SizeOperation.SIZE;
  * */
 //DIRTY READ Isolation level
 public class ReadUncommittedTransactionalMap<K, V> implements TransactionalMap<K, V> {
-    private final LockHolder<K, V> holder;
+    private final LockHolder<K> holder;
     private final ConcurrentMap<K, V> map;
 
     public ReadUncommittedTransactionalMap() {
@@ -108,9 +108,9 @@ public class ReadUncommittedTransactionalMap<K, V> implements TransactionalMap<K
          }
 
         @SuppressWarnings("unchecked")
-        public FutureValue<V> get(K key) {
-            var future = new FutureValue<V>();
-            return (FutureValue<V>) this.registerReadOp(key, GET, future);
+        public FutureValue<Option<V>> get(K key) {
+            var future = new FutureValue<Option<V>>();
+            return (FutureValue<Option<V>>) this.registerReadOp(key, GET, future);
         }
 
         @SuppressWarnings("unchecked")

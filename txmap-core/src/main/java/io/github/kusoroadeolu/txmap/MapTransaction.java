@@ -12,11 +12,10 @@ public interface MapTransaction<K, V> extends AutoCloseable, Transaction {
 
     FutureValue<Option<V>> remove(K key);
 
-    FutureValue<V> get(K key);
+    FutureValue<Option<V>> get(K key);
 
     FutureValue<Boolean> containsKey(K key);
 
     FutureValue<Integer> size();
 
-    boolean isCommitted();
 }

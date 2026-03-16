@@ -118,9 +118,9 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
          }
 
         @SuppressWarnings("unchecked")
-        public FutureValue<V> get(K key) {
+        public FutureValue<Option<V>> get(K key) {
             var future = new FutureValue<V>();
-            return (FutureValue<V>) this.registerReadOp(key, GET, future);
+            return (FutureValue<Option<V>>) this.registerReadOp(key, GET, future);
         }
 
         @SuppressWarnings("unchecked")
@@ -147,6 +147,7 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
 
         public void commit() {
             this.commitHandler.validate();
+            if (state == ABORTED) return;
             this.commitHandler.commit();
         }
 
@@ -297,8 +298,7 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
                     var key = keyOption.unwrap();
                     if (mo.type() == PUT){
                         V v = (V) mo.element();
-                        V prev = underlying.put(key, v);
-                        prevOpt = Option.ofNullable(prev);
+                        prevOpt = Option.ofNullable(underlying.put(key, v));
                     }else{
                         prevOpt = Option.ofNullable(underlying.remove(key));
                     }
@@ -308,7 +308,7 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
 
                 case Operation.GetOperation _ -> {
                     var v = underlying.get(keyOption.unwrap());
-                    Option<V> opt = Option.ofNullable(v);
+                    var opt = Option.ofNullable(v);
                     cmtx.state = TransactionState.COMMITTED;
                     cmtx.future.complete(opt);
                 }
@@ -345,6 +345,7 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
         }
 
         void validateOps(Operation op){
+            if (cmtx.parent.hasAborted) return;
             var txMap = cmtx.parent.txMap;
             this.orderThenAcquireKeys(op);
             //Write ops always have a key so this is safe
@@ -363,19 +364,24 @@ public class PessimisticTransactionalMap<K, V> implements TransactionalMap<K, V>
                     //Acquire the latch to prevent TOCTOU bugs
                     //Ran into an issue where I called set#isHeld, then set#latch.await,
                     // but the value of latch could've changed from the held latch to a null latch, leading to NPE's
-                    GuardedTxSet.Latch latch = set.latch();
-                    if (latch.isHeld(cmtx)) {
+                    GuardedTxSet.Latch latch;
+
+                    //Ensure we recheck the latch to prevent any toctou bugs
+                    //Reassign here
+                    while ((latch = set.latch()) != null && latch.isHeld(cmtx)){
                         try {
-                           latch.cLatch().await();
-                            set.incrementReaderCount();
-                            cmtx.setIncrementedCount();
-                            cmtx.state = TransactionState.VALIDATED;
+                            latch.cLatch().await();
                         } catch (InterruptedException _) {
                             Thread.currentThread().interrupt();
                             cmtx.state = TransactionState.ABORTED;
                             cmtx.parent.hasAborted = true; //TODO Rather than aborting here I could instead just, reacquire the latch, then wait using a spin loop, probably worse but worth thinking about
+                            return;
                         }
                     }
+
+                    set.incrementReaderCount(); //Linearization point, where a reader declares intent
+                    cmtx.setIncrementedCount();
+                    cmtx.state = TransactionState.VALIDATED;
 
                 }
             }

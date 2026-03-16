@@ -7,4 +7,11 @@ public interface Transaction {
     void abort();
     Option<Transaction> parent();
     TransactionState state();
+    default boolean isAborted(){
+        return state() == TransactionState.ABORTED;
+    }
+
+    default boolean isCommitted(){
+        return state() == TransactionState.COMMITTED;
+    }
 }
