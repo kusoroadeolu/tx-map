@@ -2,6 +2,7 @@ package io.github.kusoroadeolu.txmap.benchmarks;
 
 import io.github.kusoroadeolu.ferrous.option.Option;
 import io.github.kusoroadeolu.txmap.FutureValue;
+import io.github.kusoroadeolu.txmap.MapTransaction;
 import io.github.kusoroadeolu.txmap.TransactionalMap;
 import io.github.kusoroadeolu.txmap.txkeeper.VersionChainType;
 import org.openjdk.jmh.annotations.*;
@@ -14,7 +15,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 
-@BenchmarkMode(Mode.Throughput)
+@BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
 @Warmup(iterations = 10, time = 1)
@@ -183,14 +184,18 @@ public class ZipfianBenchmark {
     }
 
     private void doOp(String key, boolean isWrite, ThreadState ts, Blackhole bh) {
-        var tx = txMap.beginTx();
-            FutureValue<Integer> future;
-                if (isWrite) future = tx.put(key, 42);
-                else         future = tx.get(key);
-                tx.commit();
-                if (tx.isCommitted()) ts.commits++;
-                else if(tx.isAborted()) ts.aborts++;
-            bh.consume(future.get());
+        FutureValue<Integer> future;
+        MapTransaction<String, Integer> tx;
+        do {
+            tx = txMap.beginTx();
+            if (isWrite) future = tx.put(key, 42);
+            else         future = tx.get(key);
+            tx.commit();
+            if (tx.isCommitted()) ts.commits++;
+            else if(tx.isAborted()) ts.aborts++;
+        }while(tx.isAborted());
+        bh.consume(future.get());
+
     }
 
     static class JMHRunner {
